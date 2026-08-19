@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Meetling Outlook Add-in" Language="1031" Version="1.0.0" Manufacturer="Meetling" UpgradeCode="9B30E685-B217-4B68-A511-53304A097FD7">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser" Platform="$(var.Platform)" />
+    <MajorUpgrade DowngradeErrorMessage="Eine neuere Version ist bereits installiert."/><MediaTemplate EmbedCab="yes"/>
+    <Directory Id="TARGETDIR" Name="SourceDir"><Directory Id="LocalAppDataFolder"><Directory Id="CompanyDir" Name="Meetling"><Directory Id="INSTALLFOLDER" Name="OutlookAddIn">
+      <Component Id="AddInFiles" Guid="61D6571F-9099-43D2-A7DB-B4C7DC6088E1">
+        <File Id="AddInDll" Source="..\src\Meetling.OutlookAddIn\bin\Release\$(var.Platform)\net48\Meetling.OutlookAddIn.dll" KeyPath="yes"/>
+        <File Id="CoreDll" Source="..\src\Meetling.OutlookAddIn\bin\Release\$(var.Platform)\net48\Meetling.Core.dll"/>
+        <RegistryKey Root="HKCU" Key="Software\Microsoft\Office\Outlook\Addins\Meetling.OutlookAddIn"><RegistryValue Name="FriendlyName" Type="string" Value="Meetling-Konferenzen"/><RegistryValue Name="Description" Type="string" Value="Erstellt Meetling-Konferenzen aus Outlook-Terminen."/><RegistryValue Name="LoadBehavior" Type="integer" Value="3"/></RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\Meetling.OutlookAddIn"><RegistryValue Type="string" Value="Meetling Outlook Add-in"/></RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\Meetling.OutlookAddIn\CLSID"><RegistryValue Type="string" Value="{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}"/></RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\CLSID\{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}"><RegistryValue Type="string" Value="Meetling.OutlookAddIn.MeetlingAddIn"/></RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\CLSID\{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}\InprocServer32"><RegistryValue Type="string" Value="mscoree.dll"/><RegistryValue Name="ThreadingModel" Type="string" Value="Both"/><RegistryValue Name="Class" Type="string" Value="Meetling.OutlookAddIn.MeetlingAddIn"/><RegistryValue Name="Assembly" Type="string" Value="Meetling.OutlookAddIn, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"/><RegistryValue Name="RuntimeVersion" Type="string" Value="v4.0.30319"/><RegistryValue Name="CodeBase" Type="string" Value="[#AddInDll]"/></RegistryKey>
+      </Component>
+    </Directory></Directory></Directory></Directory>
+    <Feature Id="Complete" Title="Meetling Outlook Add-in" Level="1"><ComponentRef Id="AddInFiles"/></Feature>
+  </Product>
+</Wix>
