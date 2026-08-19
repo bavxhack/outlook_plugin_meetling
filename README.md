@@ -20,7 +20,25 @@ msbuild .\Meetling.OutlookAddIn.sln /restore /t:Build /p:Configuration=Release /
 msbuild .\Meetling.OutlookAddIn.sln /restore /t:Build /p:Configuration=Release /p:Platform=x86
 ```
 
-Die Bibliotheken liegen danach unter `src\Meetling.OutlookAddIn\bin\Release\<Plattform>\net48`.
+Die Bibliotheken liegen danach unter `src\Meetling.OutlookAddIn\bin\<Plattform>\Release\net48`.
+
+### Fertige DLL aus GitHub Actions herunterladen
+
+Die Workflow-Datei `.github/workflows/build-outlook-addin.yml` baut und testet das Add-in auf einem Windows-2022-Runner für x86 und x64. Der Workflow läuft bei jedem Push, bei Pull Requests und manuell über **Actions > Outlook-Add-in erstellen > Run workflow**.
+
+Nach einem erfolgreichen Lauf stehen unter **Artifacts** diese direkt installierbaren Pakete bereit:
+
+- `Meetling-OutlookAddIn-x86` für 32-Bit-Outlook
+- `Meetling-OutlookAddIn-x64` für 64-Bit-Outlook
+
+Das passende ZIP herunterladen, entpacken, Outlook schließen und im entpackten Verzeichnis ausführen:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\Install.ps1 -OutlookBitness x64
+```
+
+Für 32-Bit-Outlook wird `x86` angegeben. Die Hauptdatei `Meetling.OutlookAddIn.dll` benötigt die mitgelieferte `Meetling.Core.dll`; deshalb sollten die DLLs nicht einzeln aus dem Paket entfernt werden. Das Paket enthält außerdem SHA-256-Prüfsummen. Ein Tag wie `v1.0.0` erzeugt zusätzlich automatisch ein GitHub Release mit beiden ZIP-Dateien.
 
 ## Outlook-Bitness bestimmen
 

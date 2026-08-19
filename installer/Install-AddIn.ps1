@@ -1,9 +1,9 @@
 [CmdletBinding()]
 param([Parameter(Mandatory=$true)][ValidateSet('x86','x64')][string]$OutlookBitness,
-      [string]$BuildRoot = (Join-Path $PSScriptRoot '..\src\Meetling.OutlookAddIn\bin\Release'))
+      [string]$BuildRoot = (Join-Path $PSScriptRoot '..\src\Meetling.OutlookAddIn\bin'))
 $ErrorActionPreference = 'Stop'
 $platform = if ($OutlookBitness -eq 'x86') { 'x86' } else { 'x64' }
-$source = Join-Path $BuildRoot "$platform\net48"
+$source = Join-Path $BuildRoot "$platform\Release\net48"
 $dll = Join-Path $source 'Meetling.OutlookAddIn.dll'
 if (-not (Test-Path $dll)) { throw "Add-in nicht gefunden: $dll. Zuerst Release|$platform bauen." }
 $target = Join-Path $env:LOCALAPPDATA "Meetling\OutlookAddIn\$platform"

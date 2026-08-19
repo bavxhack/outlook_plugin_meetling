@@ -1,0 +1,99 @@
+name: Outlook-Add-in erstellen
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Kernlogik testen
+    runs-on: windows-2022
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: MSBuild bereitstellen
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Abhängigkeiten wiederherstellen
+        run: msbuild tests\Meetling.Core.Tests\Meetling.Core.Tests.csproj /restore /p:Configuration=Release
+
+      - name: Tests kompilieren
+        run: msbuild tests\Meetling.Core.Tests\Meetling.Core.Tests.csproj /t:Build /p:Configuration=Release /p:RestoreIgnoreFailedSources=false
+
+      - name: Tests ausführen
+        run: tests\Meetling.Core.Tests\bin\Release\net48\Meetling.Core.Tests.exe
+
+  build:
+    name: DLL für ${{ matrix.architecture }}
+    needs: test
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [x86, x64]
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: MSBuild bereitstellen
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Add-in wiederherstellen und bauen
+        shell: pwsh
+        run: >-
+          msbuild src\Meetling.OutlookAddIn\Meetling.OutlookAddIn.csproj
+          /restore /t:Rebuild /p:Configuration=Release
+          /p:Platform=${{ matrix.architecture }}
+          /p:ContinuousIntegrationBuild=true
+          /p:RestoreIgnoreFailedSources=false
+
+      - name: Installationspaket zusammenstellen
+        shell: pwsh
+        run: |
+          $source = "src\Meetling.OutlookAddIn\bin\${{ matrix.architecture }}\Release\net48"
+          $package = "artifacts\Meetling-OutlookAddIn-${{ matrix.architecture }}"
+          New-Item -ItemType Directory -Force $package | Out-Null
+          Copy-Item "$source\*.dll" $package
+          Copy-Item "$source\*.pdb" $package -ErrorAction SilentlyContinue
+          Copy-Item installer\Install-PublishedAddIn.ps1 "$package\Install.ps1"
+          Copy-Item installer\Uninstall-AddIn.ps1 "$package\Uninstall.ps1"
+          Copy-Item README.md $package
+          Get-FileHash "$package\*.dll" -Algorithm SHA256 |
+            ForEach-Object { "{0} *{1}" -f $_.Hash, (Split-Path $_.Path -Leaf) } |
+            Set-Content "$package\SHA256SUMS.txt"
+          Compress-Archive -Path "$package\*" -DestinationPath "$package.zip"
+
+      - name: DLL-Paket hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Meetling-OutlookAddIn-${{ matrix.architecture }}
+          path: |
+            artifacts/Meetling-OutlookAddIn-${{ matrix.architecture }}/
+            artifacts/Meetling-OutlookAddIn-${{ matrix.architecture }}.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: GitHub-Release veröffentlichen
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: DLL-Pakete herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Meetling-OutlookAddIn-*
+          path: release
+          merge-multiple: true
+
+      - name: Release mit x86- und x64-Paket erstellen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" release/*.zip --generate-notes --verify-tag

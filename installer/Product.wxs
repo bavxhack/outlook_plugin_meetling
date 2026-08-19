@@ -5,8 +5,8 @@
     <MajorUpgrade DowngradeErrorMessage="Eine neuere Version ist bereits installiert."/><MediaTemplate EmbedCab="yes"/>
     <Directory Id="TARGETDIR" Name="SourceDir"><Directory Id="LocalAppDataFolder"><Directory Id="CompanyDir" Name="Meetling"><Directory Id="INSTALLFOLDER" Name="OutlookAddIn">
       <Component Id="AddInFiles" Guid="61D6571F-9099-43D2-A7DB-B4C7DC6088E1">
-        <File Id="AddInDll" Source="..\src\Meetling.OutlookAddIn\bin\Release\$(var.Platform)\net48\Meetling.OutlookAddIn.dll" KeyPath="yes"/>
-        <File Id="CoreDll" Source="..\src\Meetling.OutlookAddIn\bin\Release\$(var.Platform)\net48\Meetling.Core.dll"/>
+        <File Id="AddInDll" Source="..\src\Meetling.OutlookAddIn\bin\$(var.Platform)\Release\net48\Meetling.OutlookAddIn.dll" KeyPath="yes"/>
+        <File Id="CoreDll" Source="..\src\Meetling.OutlookAddIn\bin\$(var.Platform)\Release\net48\Meetling.Core.dll"/>
         <RegistryKey Root="HKCU" Key="Software\Microsoft\Office\Outlook\Addins\Meetling.OutlookAddIn"><RegistryValue Name="FriendlyName" Type="string" Value="Meetling-Konferenzen"/><RegistryValue Name="Description" Type="string" Value="Erstellt Meetling-Konferenzen aus Outlook-Terminen."/><RegistryValue Name="LoadBehavior" Type="integer" Value="3"/></RegistryKey>
         <RegistryKey Root="HKCU" Key="Software\Classes\Meetling.OutlookAddIn"><RegistryValue Type="string" Value="Meetling Outlook Add-in"/></RegistryKey>
         <RegistryKey Root="HKCU" Key="Software\Classes\Meetling.OutlookAddIn\CLSID"><RegistryValue Type="string" Value="{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}"/></RegistryKey>
