@@ -1,6 +1,6 @@
 using Extensibility;
 using Meetling.Core;
-using Office = Microsoft.Office.Core;
+using Office = Meetling.OutlookAddIn.Interop;
 using Outlook = Microsoft.Office.Interop.Outlook;
 using System;
 using System.Net.Http;
