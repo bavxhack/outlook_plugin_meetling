@@ -45,7 +45,7 @@ internal static class Program
         True(!body.Contains("keycloakId"));
     }
 
-    private static async Task TestApi(string createJson, string infoJson, string expectedError)
+    private static async Task TestApi(string createJson, string infoJson, string? expectedError)
     {
         var handler = new QueueHandler(createJson, infoJson); var client = new MeetlingApiClient(new HttpClient(handler));
         try
