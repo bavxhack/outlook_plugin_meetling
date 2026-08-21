@@ -25,8 +25,24 @@ public static class SettingsValidator
 
     public static bool IsValidEmail(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return false;
-        try { return new MailAddress(value).Address.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase); }
-        catch (FormatException) { return false; }
+        if (value is null)
+        {
+            return false;
+        }
+
+        var normalizedValue = value.Trim();
+        if (normalizedValue.Length == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            return new MailAddress(normalizedValue).Address.Equals(normalizedValue, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 }

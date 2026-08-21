@@ -15,8 +15,10 @@ internal static class Program
         Run("URL ablehnen", () => Throws<ArgumentException>(() => SettingsValidator.NormalizeBaseUrl("ftp://example.org")));
         Run("HTTP remote warnen", () => True(SettingsValidator.IsInsecureRemoteUrl("http://example.org")));
         Run("HTTP localhost erlauben", () => True(!SettingsValidator.IsInsecureRemoteUrl("http://localhost:8080")));
+        Run("E-Mail validieren", () => { True(SettingsValidator.IsValidEmail("user@example.org")); True(!SettingsValidator.IsValidEmail("   ")); True(!SettingsValidator.IsValidEmail(null)); });
         Run("Dauer berechnen", () => Equal(61, AppointmentRules.CalculateDurationMinutes(new DateTime(2026, 1, 1, 10, 0, 0), new DateTime(2026, 1, 1, 11, 0, 1))));
         Run("Request und Bearer", TestRequest);
+        Run("Optionales Keycloak-Feld auslassen", TestRequestWithoutKeycloakId);
         RunAsync("Erfolgsantworten", () => TestApi("{\"error\":false,\"uid\":\"abc\"}", "{\"error\":false,\"room_url\":\"https://meet.example/room\"}", null));
         RunAsync("API-Fehler", () => TestApi("{\"error\":true}", "{}", "Meetling konnte"));
         RunAsync("Ungültiges JSON", () => TestApi("kein json", "{}", "ungültige JSON"));
@@ -34,6 +36,13 @@ internal static class Program
         Equal("https://meet.example/api/v1/room", request.RequestUri.AbsoluteUri);
         var body = request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
         True(body.Contains("email=a%40example.org")); True(body.Contains("duration=30")); True(body.Contains("keycloakId=kid"));
+    }
+
+    private static void TestRequestWithoutKeycloakId()
+    {
+        var request = MeetlingApiClient.BuildCreateRequest("https://meet.example", "secret", new ConferenceRequest("a@example.org", "Planung", 30, "srv", DateTimeOffset.Now));
+        var body = request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        True(!body.Contains("keycloakId"));
     }
 
     private static async Task TestApi(string createJson, string infoJson, string expectedError)

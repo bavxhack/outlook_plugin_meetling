@@ -50,7 +50,10 @@ public sealed class MeetlingApiClient
             new KeyValuePair<string, string>("server", request.Server),
             new KeyValuePair<string, string>("start", request.Start.ToString("o", CultureInfo.InvariantCulture))
         };
-        if (!string.IsNullOrWhiteSpace(request.KeycloakId)) fields.Add(new KeyValuePair<string, string>("keycloakId", request.KeycloakId));
+        if (request.KeycloakId is { } keycloakId && !string.IsNullOrWhiteSpace(keycloakId))
+        {
+            fields.Add(new KeyValuePair<string, string>("keycloakId", keycloakId));
+        }
         var message = new HttpRequestMessage(HttpMethod.Post, SettingsValidator.NormalizeBaseUrl(baseUrl) + "/api/v1/room")
         {
             Content = new FormUrlEncodedContent(fields)
