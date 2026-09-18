@@ -24,7 +24,7 @@ Die Bibliotheken liegen danach unter `src\Meetling.OutlookAddIn\bin\<Plattform>\
 
 ### Fertige DLL aus GitHub Actions herunterladen
 
-Die Workflow-Datei `.github/workflows/build-outlook-addin.yml` baut und testet das Add-in auf einem Windows-2022-Runner für x86 und x64. Der Workflow läuft bei jedem Push, bei Pull Requests und manuell über **Actions > Outlook-Add-in erstellen > Run workflow**.
+Die Workflow-Datei `.github/workflows/build-outlook-addin.yml` baut und testet das Add-in mit einem festgelegten .NET-8-SDK auf einem Windows-2022-Runner für x86 und x64. Der Workflow läuft bei jedem Push, bei Pull Requests und manuell über **Actions > Outlook-Add-in erstellen > Run workflow**. Vor dem Veröffentlichen kontrolliert er, dass beide Add-in-DLLs vorhanden und beide ZIP-Dateien lesbar sind.
 
 Nach einem erfolgreichen Lauf stehen unter **Artifacts** diese direkt installierbaren Pakete bereit:
 
@@ -38,7 +38,9 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\Install.ps1 -OutlookBitness x64
 ```
 
-Für 32-Bit-Outlook wird `x86` angegeben. Die Hauptdatei `Meetling.OutlookAddIn.dll` benötigt die mitgelieferte `Meetling.Core.dll`; deshalb sollten die DLLs nicht einzeln aus dem Paket entfernt werden. Das Paket enthält außerdem SHA-256-Prüfsummen. Ein Tag wie `v1.0.0` erzeugt zusätzlich automatisch ein GitHub Release mit beiden ZIP-Dateien.
+Für 32-Bit-Outlook wird `x86` angegeben. Die Hauptdatei `Meetling.OutlookAddIn.dll` benötigt die mitgelieferte `Meetling.Core.dll`; deshalb sollten die DLLs nicht einzeln aus dem Paket entfernt werden. Das Paket enthält außerdem SHA-256-Prüfsummen.
+
+Bei jedem erfolgreichen Push beziehungsweise manuellen Lauf wird das Vorab-Release **Meetling Outlook Add-in – aktueller Build** unter **Releases** neu erstellt. Dort können die beiden ZIP-Dateien ohne Öffnen des Workflow-Laufs heruntergeladen werden. Ein Tag wie `v1.0.0` erzeugt stattdessen ein dauerhaftes, versioniertes Release. Pull Requests erzeugen aus Sicherheitsgründen nur Workflow-Artefakte und kein Release.
 
 ## Outlook-Bitness bestimmen
 
@@ -54,7 +56,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 # Für 32-Bit-Outlook: -OutlookBitness x86
 ```
 
-Das Skript kopiert die Release-Dateien nach `%LOCALAPPDATA%\Meetling\OutlookAddIn`, verwendet das zur Outlook-Bitness passende `RegAsm.exe` und registriert das Add-in unter `HKCU`. Danach Outlook neu starten.
+Das Skript kopiert die Release-Dateien nach `%LOCALAPPDATA%\Meetling\OutlookAddIn` und registriert sowohl die COM-Klasse als auch das Outlook-Add-in ausschließlich benutzerbezogen unter `HKCU`. Für 32- und 64-Bit-Outlook wird dabei ausdrücklich die passende Windows-Registry-Ansicht verwendet. Administratorrechte und `RegAsm.exe` sind nicht erforderlich. Danach Outlook neu starten.
 
 ### MSI (optional und signierbar)
 
