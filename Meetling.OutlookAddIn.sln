@@ -1,0 +1,40 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meetling.Core", "src\Meetling.Core\Meetling.Core.csproj", "{71FA437E-FB4A-41DE-8976-2B7362980573}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meetling.OutlookAddIn", "src\Meetling.OutlookAddIn\Meetling.OutlookAddIn.csproj", "{B4128BF4-674C-456A-9C6E-07379FBC8BBD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meetling.Core.Tests", "tests\Meetling.Core.Tests\Meetling.Core.Tests.csproj", "{DDCEB64C-A72D-4760-A950-22F19756594A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{71FA437E-FB4A-41DE-8976-2B7362980573}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{71FA437E-FB4A-41DE-8976-2B7362980573}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{71FA437E-FB4A-41DE-8976-2B7362980573}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{71FA437E-FB4A-41DE-8976-2B7362980573}.Release|Any CPU.Build.0 = Release|Any CPU
+		{71FA437E-FB4A-41DE-8976-2B7362980573}.Release|x64.ActiveCfg = Release|Any CPU
+		{71FA437E-FB4A-41DE-8976-2B7362980573}.Release|x64.Build.0 = Release|Any CPU
+		{71FA437E-FB4A-41DE-8976-2B7362980573}.Release|x86.ActiveCfg = Release|Any CPU
+		{71FA437E-FB4A-41DE-8976-2B7362980573}.Release|x86.Build.0 = Release|Any CPU
+		{B4128BF4-674C-456A-9C6E-07379FBC8BBD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4128BF4-674C-456A-9C6E-07379FBC8BBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4128BF4-674C-456A-9C6E-07379FBC8BBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4128BF4-674C-456A-9C6E-07379FBC8BBD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4128BF4-674C-456A-9C6E-07379FBC8BBD}.Release|x64.ActiveCfg = Release|x64
+		{B4128BF4-674C-456A-9C6E-07379FBC8BBD}.Release|x64.Build.0 = Release|x64
+		{B4128BF4-674C-456A-9C6E-07379FBC8BBD}.Release|x86.ActiveCfg = Release|x86
+		{B4128BF4-674C-456A-9C6E-07379FBC8BBD}.Release|x86.Build.0 = Release|x86
+		{DDCEB64C-A72D-4760-A950-22F19756594A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DDCEB64C-A72D-4760-A950-22F19756594A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DDCEB64C-A72D-4760-A950-22F19756594A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DDCEB64C-A72D-4760-A950-22F19756594A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
