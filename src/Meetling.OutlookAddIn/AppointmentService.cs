@@ -1,7 +1,7 @@
 using Meetling.Core;
+using Microsoft.CSharp.RuntimeBinder;
 using Outlook = Microsoft.Office.Interop.Outlook;
 using System;
-using System.Net;
 using System.Runtime.InteropServices;
 
 namespace Meetling.OutlookAddIn;
@@ -45,11 +45,7 @@ internal sealed class AppointmentService
             if (inspector == null || !(inspector.CurrentItem is Outlook.AppointmentItem appointment)) throw new InvalidOperationException("Der geöffnete Outlook-Eintrag ist kein Termin.");
             item = appointment;
             if (HasConference(item)) throw new InvalidOperationException("Dieser Termin enthält bereits eine Meetling-Konferenz.");
-            var encoded = WebUtility.HtmlEncode(participantUri.AbsoluteUri);
-            if (item.BodyFormat == Outlook.OlBodyFormat.olFormatHTML)
-                item.HTMLBody = $"<p><strong>Meetling-Konferenz:</strong> <a href=\"{encoded}\">{encoded}</a></p>" + (item.HTMLBody ?? string.Empty);
-            else
-                item.Body = $"Meetling-Konferenz: {participantUri.AbsoluteUri}{Environment.NewLine}{Environment.NewLine}" + (item.Body ?? string.Empty);
+            InsertConferenceLink(inspector, participantUri);
             properties = item.UserProperties;
             SetProperty(properties, AppointmentRules.UidProperty, uid);
             SetProperty(properties, AppointmentRules.ParticipantLinkProperty, participantUri.AbsoluteUri);
@@ -76,9 +72,21 @@ internal sealed class AppointmentService
         try
         {
             account = item.SendUsingAccount;
-            if (SettingsValidator.IsValidEmail(account?.SmtpAddress)) return account.SmtpAddress;
+            if (account?.SmtpAddress is { } smtpAddress && SettingsValidator.IsValidEmail(smtpAddress))
+            {
+                return smtpAddress;
+            }
+
             session = application.Session; currentUser = session.CurrentUser; entry = currentUser.AddressEntry;
-            if (entry != null && entry.Type == "EX") { exchangeUser = entry.GetExchangeUser(); if (SettingsValidator.IsValidEmail(exchangeUser?.PrimarySmtpAddress)) return exchangeUser.PrimarySmtpAddress; }
+            if (entry != null && entry.Type == "EX")
+            {
+                exchangeUser = entry.GetExchangeUser();
+                if (exchangeUser?.PrimarySmtpAddress is { } primarySmtpAddress && SettingsValidator.IsValidEmail(primarySmtpAddress))
+                {
+                    return primarySmtpAddress;
+                }
+            }
+
             return entry?.Address ?? string.Empty;
         }
         finally { Release(exchangeUser); Release(entry); Release(currentUser); Release(session); Release(account); }
@@ -89,6 +97,40 @@ internal sealed class AppointmentService
         Outlook.UserProperty? property = null;
         try { property = properties.Find(name, true) ?? properties.Add(name, Outlook.OlUserPropertyType.olText, false, Type.Missing); property.Value = value; }
         finally { Release(property); }
+    }
+
+    private static void InsertConferenceLink(Outlook.Inspector inspector, Uri participantUri)
+    {
+        object? editor = null;
+        object? insertionRange = null;
+        object? linkRange = null;
+        object? hyperlinks = null;
+        try
+        {
+            editor = inspector.WordEditor;
+            dynamic document = editor;
+            const string label = "Meetling-Konferenz: ";
+            var link = participantUri.AbsoluteUri;
+            var insertedText = $"{label}{link}\r\n\r\n";
+
+            insertionRange = document.Range(0, 0);
+            ((dynamic)insertionRange).Text = insertedText;
+
+            linkRange = document.Range(label.Length, label.Length + link.Length);
+            hyperlinks = document.Hyperlinks;
+            ((dynamic)hyperlinks).Add(linkRange, link, Type.Missing, Type.Missing, link, Type.Missing);
+        }
+        catch (Exception ex) when (ex is COMException || ex is RuntimeBinderException)
+        {
+            throw new InvalidOperationException("Der Teilnehmerlink konnte nicht in den Termin eingefügt werden.", ex);
+        }
+        finally
+        {
+            Release(hyperlinks);
+            Release(linkRange);
+            Release(insertionRange);
+            Release(editor);
+        }
     }
 
     private static void Release(object? value) { if (value != null && Marshal.IsComObject(value)) Marshal.FinalReleaseComObject(value); }
