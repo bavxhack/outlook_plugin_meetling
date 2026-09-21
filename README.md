@@ -56,7 +56,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 # Für 32-Bit-Outlook: -OutlookBitness x86
 ```
 
-Das Skript kopiert die Release-Dateien nach `%LOCALAPPDATA%\Meetling\OutlookAddIn` und registriert sowohl die COM-Klasse als auch das Outlook-Add-in ausschließlich benutzerbezogen unter `HKCU`. Für 32- und 64-Bit-Outlook wird dabei ausdrücklich die passende Windows-Registry-Ansicht verwendet. Administratorrechte und `RegAsm.exe` sind nicht erforderlich. Danach Outlook neu starten.
+Das Skript prüft vorab, ob Outlook geschlossen ist, .NET Framework 4.8 installiert ist, die gewählte Bitness zu Outlook passt und alle Laufzeit-DLLs vorhanden sind. Heruntergeladene DLLs werden mit `Unblock-File` entsperrt. Danach kopiert das Skript die Dateien nach `%LOCALAPPDATA%\Meetling\OutlookAddIn` und registriert sowohl die COM-Klasse als auch das Outlook-Add-in ausschließlich benutzerbezogen unter `HKCU`. Für 32- und 64-Bit-Outlook wird ausdrücklich die passende Windows-Registry-Ansicht verwendet. Administratorrechte und `RegAsm.exe` sind nicht erforderlich. Danach Outlook neu starten.
 
 ### MSI (optional und signierbar)
 
@@ -116,6 +116,20 @@ Sie prüfen URL-Regeln, Dauer, Formulardaten, Bearer-Header, erfolgreiche und fe
 ## Fehlerdiagnose
 
 Kurze Meldungen erscheinen auf Deutsch. Technische Diagnosen stehen in `%LOCALAPPDATA%\Meetling\OutlookAddIn\diagnose.log`. Das Protokoll enthält keine API-Schlüssel und keine vollständigen Termininhalte. Falls Outlook das Add-in deaktiviert: **Datei > Optionen > Add-Ins > Verwalten: Deaktivierte Elemente/COM-Add-Ins** prüfen sowie Bitness und `LoadBehavior=3` kontrollieren.
+
+### „Das Add-in wurde nicht aktiviert, da ein Fehler aufgetreten ist“
+
+Diese Meldung entsteht meistens durch eine falsche x86-/x64-Auswahl, eine von Windows blockierte heruntergeladene DLL oder ein unvollständig entpacktes Paket. Outlook schließen, das neueste vollständige ZIP passend zur Outlook-Bitness erneut entpacken und `Install.ps1` nochmals ausführen. Der Installer prüft diese Fälle und nennt den konkreten Fehler.
+
+Anschließend in Outlook unter **Datei > Optionen > Add-Ins** zuerst **Deaktivierte Elemente** und dann **COM-Add-Ins** öffnen. Falls „Meetling-Konferenzen“ deaktiviert ist, erneut aktivieren. Die installierten Dateien und Registrierung können für 64-Bit-Outlook so geprüft werden:
+
+```powershell
+Get-ChildItem "$env:LOCALAPPDATA\Meetling\OutlookAddIn\x64"
+reg.exe query "HKCU\Software\Microsoft\Office\Outlook\Addins\Meetling.OutlookAddIn" /reg:64
+reg.exe query "HKCU\Software\Classes\CLSID\{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}\InprocServer32" /reg:64
+```
+
+Für 32-Bit-Outlook jeweils `x64` durch `x86` und `/reg:64` durch `/reg:32` ersetzen. Im Installationsordner müssen mindestens `Meetling.OutlookAddIn.dll`, `Meetling.Core.dll` und `Microsoft.Office.Interop.Outlook.dll` liegen. `LoadBehavior` muss den Wert `3` besitzen und `CodeBase` muss auf die installierte `Meetling.OutlookAddIn.dll` zeigen.
 
 ## Bekannte Einschränkungen
 

@@ -8,9 +8,15 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$sourceAddIn = Join-Path $PackageDirectory 'Meetling.OutlookAddIn.dll'
-if (-not (Test-Path $sourceAddIn)) {
-    throw "Meetling.OutlookAddIn.dll wurde im Paketverzeichnis nicht gefunden: $PackageDirectory"
+$requiredFiles = @(
+    'Meetling.OutlookAddIn.dll',
+    'Meetling.Core.dll',
+    'Microsoft.Office.Interop.Outlook.dll'
+)
+foreach ($file in $requiredFiles) {
+    if (-not (Test-Path (Join-Path $PackageDirectory $file))) {
+        throw "Erforderliche Datei fehlt im Paket: $file. Bitte das vollständige ZIP erneut herunterladen und entpacken."
+    }
 }
 
 function Invoke-RegistryCommand {
@@ -22,9 +28,68 @@ function Invoke-RegistryCommand {
     }
 }
 
+function Get-InstalledOutlookBitness {
+    $locations = @(
+        @{ Path = 'SOFTWARE\Microsoft\Office\ClickToRun\Configuration'; Value = 'Platform' },
+        @{ Path = 'SOFTWARE\Microsoft\Office\16.0\Outlook'; Value = 'Bitness' }
+    )
+    $views = @(
+        [Microsoft.Win32.RegistryView]::Registry64,
+        [Microsoft.Win32.RegistryView]::Registry32
+    )
+
+    foreach ($view in $views) {
+        $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, $view)
+        try {
+            foreach ($location in $locations) {
+                $key = $baseKey.OpenSubKey($location.Path)
+                try {
+                    if ($null -eq $key) {
+                        continue
+                    }
+
+                    $registryValue = $key.GetValue($location.Value)
+                    $value = if ($null -eq $registryValue) { $null } else { $registryValue.ToString().ToLowerInvariant() }
+                    if ($value -in @('x86', 'x64')) {
+                        return $value
+                    }
+                }
+                finally {
+                    if ($null -ne $key) {
+                        $key.Dispose()
+                    }
+                }
+            }
+        }
+        finally {
+            $baseKey.Dispose()
+        }
+    }
+
+    return $null
+}
+
+if (Get-Process OUTLOOK -ErrorAction SilentlyContinue) {
+    throw 'Outlook läuft noch. Bitte Outlook vollständig schließen und die Installation erneut starten.'
+}
+
+$installedBitness = Get-InstalledOutlookBitness
+if ($null -ne $installedBitness -and $installedBitness -ne $OutlookBitness) {
+    throw "Installationspaket und Outlook passen nicht zusammen. Installiert ist Outlook $installedBitness, ausgewählt wurde $OutlookBitness."
+}
+
+$frameworkRelease = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release -ErrorAction SilentlyContinue).Release
+if ($null -eq $frameworkRelease -or $frameworkRelease -lt 528040) {
+    throw '.NET Framework 4.8 ist nicht installiert. Bitte .NET Framework 4.8 installieren und die Installation wiederholen.'
+}
+
+$sourceDlls = Get-ChildItem $PackageDirectory -Filter '*.dll' -File
+$sourceDlls | Unblock-File
+
 $target = Join-Path $env:LOCALAPPDATA "Meetling\OutlookAddIn\$OutlookBitness"
 New-Item -ItemType Directory -Force $target | Out-Null
-Copy-Item (Join-Path $PackageDirectory '*.dll') $target -Force
+$sourceDlls | Copy-Item -Destination $target -Force
+Get-ChildItem $target -Filter '*.dll' -File | Unblock-File
 
 $addInPath = (Resolve-Path (Join-Path $target 'Meetling.OutlookAddIn.dll')).Path
 $codeBase = [Uri]::new($addInPath).AbsoluteUri
@@ -52,5 +117,8 @@ Invoke-RegistryCommand @('ADD', $inprocKey, '/v', 'CodeBase', '/t', 'REG_SZ', '/
 Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'FriendlyName', '/t', 'REG_SZ', '/d', 'Meetling-Konferenzen', '/f', $viewArgument)
 Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'Description', '/t', 'REG_SZ', '/d', 'Erstellt Meetling-Konferenzen aus Outlook-Terminen.', '/f', $viewArgument)
 Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'LoadBehavior', '/t', 'REG_DWORD', '/d', '3', '/f', $viewArgument)
+
+Invoke-RegistryCommand @('QUERY', $inprocKey, '/v', 'CodeBase', $viewArgument)
+Invoke-RegistryCommand @('QUERY', $addInKey, '/v', 'LoadBehavior', $viewArgument)
 
 Write-Host 'Meetling wurde für den aktuellen Benutzer installiert. Outlook kann jetzt gestartet werden.'

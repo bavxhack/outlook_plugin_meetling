@@ -92,7 +92,8 @@ jobs:
           $package = Join-Path "artifacts" $packageName
           $requiredBuildFiles = @(
               "Meetling.OutlookAddIn.dll",
-              "Meetling.Core.dll"
+              "Meetling.Core.dll",
+              "Microsoft.Office.Interop.Outlook.dll"
           )
 
           foreach ($file in $requiredBuildFiles) {
