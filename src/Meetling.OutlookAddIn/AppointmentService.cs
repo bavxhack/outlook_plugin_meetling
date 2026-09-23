@@ -133,5 +133,11 @@ internal sealed class AppointmentService
         }
     }
 
-    private static void Release(object? value) { if (value != null && Marshal.IsComObject(value)) Marshal.FinalReleaseComObject(value); }
+    private static void Release(object? value)
+    {
+        if (value != null && Marshal.IsComObject(value))
+        {
+            Marshal.ReleaseComObject(value);
+        }
+    }
 }

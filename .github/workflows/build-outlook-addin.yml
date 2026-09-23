@@ -108,6 +108,7 @@ jobs:
           Copy-Item (Join-Path $source '*.pdb') $package -Force -ErrorAction SilentlyContinue
           Copy-Item installer\Install-PublishedAddIn.ps1 (Join-Path $package 'Install.ps1') -Force
           Copy-Item installer\Uninstall-AddIn.ps1 (Join-Path $package 'Uninstall.ps1') -Force
+          Copy-Item installer\Collect-Diagnostics.ps1 (Join-Path $package 'Diagnose.ps1') -Force
           Copy-Item README.md $package -Force
 
           Get-FileHash (Join-Path $package '*.dll') -Algorithm SHA256 |

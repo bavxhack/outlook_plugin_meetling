@@ -132,6 +132,15 @@ reg.exe query "HKCU\Software\Classes\CLSID\{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48
 
 Für 32-Bit-Outlook jeweils `x64` durch `x86` und `/reg:64` durch `/reg:32` ersetzen. Im Installationsordner müssen mindestens `Meetling.OutlookAddIn.dll`, `Meetling.Core.dll` und `Microsoft.Office.Interop.Outlook.dll` liegen. `LoadBehavior` muss den Wert `3` besitzen und `CodeBase` muss auf die installierte `Meetling.OutlookAddIn.dll` zeigen.
 
+Das Release-Paket enthält außerdem `Diagnose.ps1`. Outlook vollständig schließen und im entpackten Release-Ordner für 64-Bit-Outlook ausführen:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\Diagnose.ps1 -OutlookBitness x64
+```
+
+Für 32-Bit-Outlook `x86` verwenden. Das Skript erstellt auf dem Desktop `Meetling-Outlook-Diagnose.txt` mit DLL-Prüfsummen, Download-Blockierungsstatus, relevanten Registry-Werten, dem lokalen Meetling-Protokoll und passenden Windows-Ereignissen der letzten drei Tage. Binäre Outlook-Resiliency-Daten werden aus Datenschutzgründen nicht ausgegeben. In der Ereignisanzeige sind dieselben Absturzdetails unter **Windows-Protokolle > Anwendung** bei den Quellen **.NET Runtime**, **Application Error** oder **SideBySide** zu finden.
+
 ## Bekannte Einschränkungen
 
 - Nur klassische Windows-Outlook-Desktopversionen; kein neues Outlook, Outlook im Web oder macOS.

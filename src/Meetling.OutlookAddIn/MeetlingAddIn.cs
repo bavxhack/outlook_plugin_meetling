@@ -51,11 +51,28 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
         { DiagnosticLog.Write("Einstellungen konnten nicht gespeichert werden.", ex); MessageBox.Show("Die Einstellungen konnten nicht gespeichert werden.", "Meetling", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
 
-    public void OnConnection(object app, ext_ConnectMode connectMode, object addInInstance, ref Array custom) => application = (Outlook.Application)app;
-    public void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom) { if (application != null && Marshal.IsComObject(application)) Marshal.FinalReleaseComObject(application); application = null; }
+    public void OnConnection(object app, ext_ConnectMode connectMode, object addInInstance, ref Array custom)
+    {
+        try
+        {
+            application = app as Outlook.Application ?? throw new InvalidCastException("Outlook-Anwendung konnte nicht initialisiert werden.");
+            DiagnosticLog.WriteInfo("Add-in wurde von Outlook geladen.");
+        }
+        catch (Exception ex)
+        {
+            application = null;
+            DiagnosticLog.Write("Add-in-Initialisierung ist fehlgeschlagen.", ex);
+        }
+    }
+
+    public void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom)
+    {
+        // Outlook owns the Application RCW. Releasing it here can invalidate a shared RCW and crash Outlook during shutdown.
+        application = null;
+    }
     public void OnAddInsUpdate(ref Array custom) { }
     public void OnStartupComplete(ref Array custom) { }
-    public void OnBeginShutdown(ref Array custom) { }
+    public void OnBeginShutdown(ref Array custom) => application = null;
 
     private static void ValidateRequiredSettings(MeetlingSettings settings)
     {
