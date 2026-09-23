@@ -77,6 +77,7 @@ Outlook schließen, dann:
 ```
 
 Die persönlichen Einstellungen unter `%LOCALAPPDATA%\Meetling\OutlookAddIn` bleiben zur Vermeidung eines unbeabsichtigten Schlüsselverlusts erhalten und können manuell gelöscht werden.
+Das Deinstallationsskript ist wiederholt ausführbar: Bereits fehlende Registry-Einträge werden als erfolgreich entfernt behandelt und verursachen keinen Fehler.
 
 ## Konfiguration
 
