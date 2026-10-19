@@ -12,6 +12,8 @@ $password = ConvertTo-SecureString ([Guid]::NewGuid().ToString('N') + '!aA1') -A
 $root = Join-Path $env:PUBLIC $userName
 try {
     New-LocalUser -Name $userName -Password $password -AccountNeverExpires | Out-Null
+    $usersGroup = Get-LocalGroup -SID ([Security.Principal.SecurityIdentifier]::new('S-1-5-32-545'))
+    Add-LocalGroupMember -Group $usersGroup -Member $userName
     New-Item -ItemType Directory -Path "$root\package", "$root\harness" -Force | Out-Null
     Copy-Item "$PackageDirectory\*" "$root\package" -Recurse -Force
     Copy-Item "$HarnessDirectory\*" "$root\harness" -Recurse -Force
