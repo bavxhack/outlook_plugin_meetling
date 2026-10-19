@@ -19,7 +19,7 @@ Noch nicht unter Outlook abgenommen. Für x86 und x64 getrennt ausfüllen.
    Dialoge, Anmeldungen oder API-Aufrufe.
 3. Im Hauptfenster den eigenen Tab **Meetling**, Gruppe **Meetling**, öffnen.
 4. **Plugin testen** klicken. Erwartet: „Meetling wurde geladen. Der Button
-   funktioniert.“ und tatsächlich gebaute Version (aktuell 1.1.0.0).
+   funktioniert.“ und tatsächlich gebaute Version (aktuell 1.2.0.0).
 5. **Einstellungen** klicken. Erwartet: „Basisversion: Die Server- und
    API-Konfiguration folgt im nächsten Schritt.“, Version und Diagnosepfad;
    keine Zugangsdaten abfragen.
@@ -46,3 +46,31 @@ Noch nicht unter Outlook abgenommen. Für x86 und x64 getrennt ausfüllen.
 Bei Fehlschlag Kontext, Zeitpunkt und tatsächliche Fehlermeldung dokumentieren.
 XML-Fehleranzeige und gezielte Reaktivierung siehe README. Keine fremden Add-ins
 oder globalen Resiliency-Daten löschen. Erfolg erst nach echtem Lauf eintragen.
+
+## Kalenderbutton und Mock-Terminplaner (1.2.0.0)
+
+Die Installation und die bisherigen Testbuttons wurden vom Nutzer als
+funktionierend bestätigt. Exakte Windows-/Outlook-Version und Bitness bitte
+weiterhin oben festhalten. Die nachfolgenden neuen UI-Schritte stehen noch aus:
+
+1. Aktualisiertes passendes Paket installieren und Outlook Classic starten.
+2. Zur Kalenderübersicht wechseln und den eingebauten Tab **Start** öffnen.
+3. Direkt nach der Gruppe **Neu** die Gruppe **Meetling** mit **Neues Meetling**
+   prüfen. Andere Add-ins können die endgültige Gruppenreihenfolge beeinflussen.
+4. Das Symbol muss ausschließlich den grünen Würfel mit zwei weißen Punkten
+   zeigen, ohne Schriftzug und ohne die beiden kleineren Würfel. Ecken transparent;
+   klassisches und vereinfachtes Ribbon sowie 100/150/200 % Skalierung prüfen.
+5. Einmal klicken. Erwartet: neue native Outlook-Besprechung mit Teilnehmerfeldern,
+   Datum/Uhrzeit und verfügbarer Terminplanungs-Assistent-Ansicht.
+6. Body enthält „Testlink (Mock – keine echte Konferenz)“ und eine eindeutige
+   https://meetling.example.invalid/mock/…-Adresse. Sie startet keine echte Konferenz.
+7. Betreff, Teilnehmer und Zeiten sind normal editierbar. Kein automatisches
+   Speichern oder Versenden; Testentwurf ohne Speichern schließen.
+8. Vorhandene ausgewählte Termine bleiben unverändert. Keine API-/Anmeldeabfrage.
+9. Nach Neustart, bei fehlenden/beschädigten Einstellungsdateien und unter x86/x64
+   wiederholen. Der Mock-Button darf diese Dateien nicht lesen oder ändern.
+10. Diagnose prüfen: CreateMeeting entered (mock); keine Konferenzlinks im Log.
+
+CI ersetzt ausschließlich die native Editor-Grenze durch eine Testfunktion,
+öffnet also keinen Outlook-Dialog. Die erfolgreiche CI beweist nicht diese
+Outlook-Anzeige oder das Öffnen des echten Besprechungsfensters.

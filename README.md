@@ -2,15 +2,25 @@
 
 Klassisches COM-Add-in für .NET Framework 4.8, kein VSTO. ProgID
 `Meetling.OutlookAddIn`, CLSID `{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}`.
-Version 1.1.0.0. Unterstützt Outlook Classic unter Windows; das neue Outlook
+Version 1.2.0.0. Unterstützt Outlook Classic unter Windows; das neue Outlook
 unterstützt dieses COM-Add-in nicht.
 
-Der eigene Tab **Meetling** erscheint im Hauptfenster, im separat geöffneten
-Termin und im separaten E-Mail-Verfassen-Fenster. **Plugin testen** zeigt eine
-lokale Bestätigung mit Assemblyversion. **Einstellungen** zeigt den Ausbauhinweis,
-Version und Diagnosepfad. **Meetling-Konferenz** ist deaktiviert und hat keinen
-Callback. Start, Ribbon und Buttons lesen keine Einstellungen oder Secrets,
-rufen keine API auf und verändern keine Outlook-Elemente.
+In der **Kalenderübersicht → Start** steht neben **Neu** die Gruppe **Meetling**
+mit dem großen Button **Neues Meetling**. Das Symbol ist ausschließlich der
+vorderste grüne Würfel aus dem vom Nutzer gelieferten Meetling-SVG, mit den
+originalen Farben und transparenten Ecken. Es ist direkt in der DLL enthalten.
+
+Ein Klick öffnet eine neue native Outlook-Besprechung mit Teilnehmerfeldern,
+Datum/Uhrzeit, Terminplanungs-Assistent und einem **ausdrücklich als Mock
+gekennzeichneten Testlink** im Body. Der Link verwendet die nicht produktive
+Adresse `https://meetling.example.invalid/mock/…`; es wird keine echte Konferenz
+erstellt. Der Entwurf wird weder automatisch gespeichert noch versendet.
+Vorhandene Kalendereinträge werden nicht verändert. Server und API folgen später.
+
+Der eigene Tab **Meetling** mit **Plugin testen** und **Einstellungen** bleibt
+als Diagnoseweg im Hauptfenster, Termin- und E-Mail-Verfassen-Fenster erhalten.
+Der bisherige allgemeine Konferenzbutton bleibt dort deaktiviert. Start, Ribbon
+und Mock-Erstellung benötigen keine Einstellungen, Zugangsdaten oder Netzwerkverbindung.
 
 ## Standardweg: ZIP und Windows PowerShell 5.1
 
@@ -110,7 +120,10 @@ registrierte COM-Klasse, prüft die Hostinterfaces und ruft die Callbacknamen
 über echtes Standard-IDispatch (`GetIDsOfNames` und `Invoke`) auf. Nur die
 interne Dialogausgabe wird im Test ersetzt; keine CI-Dialoge. Zusätzlich prüft
 er XML-Struktur, drei Fensterkontexte, deaktivierte Konferenz und Lifecycle.
-Core-Tests sind reine Logiktests, keine Outlook-Integrationstests.
+Zusätzlich prüft er den Bildcallback als echtes IPictureDisp, die Originalfarben
+und Transparenz des Würfels sowie den Mock-Entwurf an der Grenze zur nativen
+Outlook-UI. Die native Outlook-UI wird im CI nicht geöffnet. Core-Tests sind
+reine Logiktests, keine Outlook-Integrationstests.
 
 **WiX/MSI ist ein nicht abgenommener alternativer Weg.** Der vorhandene Entwurf
 enthält weiterhin feste Versions-/Assemblyangaben, abweichenden Zielordner,
@@ -126,6 +139,6 @@ Einen aktuellen erfolgreichen CI-Lauf und die konkrete Windows-/Outlook-Abnahme
 getrennt nachweisen. Eine erfolgreiche Kompilierung oder COM-Aktivierung belegt
 keine Ribbon-Anzeige in Outlook.
 
-Meetling-API, Serverauswahl und Bearbeitung von Terminen/Nachrichten bleiben
-ausgeschaltet. Der fachliche Ausbau beginnt erst nach Basisabnahme:
+Meetling-API, Serverauswahl und Änderungen vorhandener Termine/Nachrichten bleiben
+ausgeschaltet. Der neue Kalenderbutton öffnet nur einen Mock-Besprechungsentwurf. Der fachliche Ausbau beginnt erst nach Basisabnahme:
 [docs/roadmap.md](docs/roadmap.md).

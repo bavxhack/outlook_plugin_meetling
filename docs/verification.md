@@ -76,3 +76,27 @@ CI-Hilfsskripte werden nicht an Anwender ausgeliefert. Die Produktinstallation
 bleibt ausschließlich unter HKCU; Outlook soll ohne Administratorrechte starten.
 
 [Microsoft: COM und Benutzerregistrierung bei erhöhten Rechten](https://learn.microsoft.com/en-us/windows/win32/com/the-com-elevation-moniker).
+
+## Kalender-Ribbon und Mock-Entwurf (1.2.0.0)
+
+Nutzer bestätigt Installation und bedienbare Basisbuttons. Der neue Kalenderbutton
+wird nur im Explorer-XML in TabCalendar / nach GroupCalendarNew eingefügt; die
+bisherigen Diagnose-Tabs bleiben vorhanden. Das eingebettete SVG enthält exakt
+das erste grüne Rechteck und die zwei zugehörigen weißen Kreise aus dem vom
+Nutzer hochgeladenen Meetling_Logo_2025_Color.svg. Der native Bitmap-Renderer
+verwendet diese Vektorgeometrie und benötigt keine externe Bilddatei.
+
+Explizite Dispatch-Erweiterung: GetMeetlingImage = 3 (Rückgabe IDispatch/IPictureDisp),
+CreateMeeting = 4. Die bisherigen DISPIDs 1 und 2 bleiben unverändert.
+Der Windows-Smoke-Test prüft das Image-Invoke über die native COM-Grenze,
+QueryInterface auf stdole.IPictureDisp, transparente Ecken und Originalfarben.
+CreateMeeting wird ebenfalls über IDispatch aufgerufen; nur der native
+Outlook-Editor wird intern ersetzt. Der erzeugte Mock-Entwurf enthält seinen
+.invalid-Link im Body und ist klar als Test gekennzeichnet.
+
+Der Produktcode öffnet eine neue AppointmentItem-Besprechung mit Display(false).
+Kein Zugriff auf vorhandene Termine, keine Netzwerkaufrufe, kein automatisches
+Save/Send. Alle Outlook-Zugriffe finden auf dem Ribbon-UI-Thread statt.
+Echte Outlook-UI-Abnahme siehe Ergänzung in smoke-test.md; noch nicht ausgeführt.
+
+[Microsoft: Outlook-Ribbon-Anpassung](https://learn.microsoft.com/en-us/office/vba/outlook/how-to/office-fluent-ui-extensibility/overview-of-customizing-the-ribbon).

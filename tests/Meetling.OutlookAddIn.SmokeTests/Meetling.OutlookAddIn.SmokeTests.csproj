@@ -8,5 +8,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Meetling.OutlookAddIn\Meetling.OutlookAddIn.csproj" />
     <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 </Project>

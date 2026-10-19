@@ -38,3 +38,12 @@ erhalten; ihr heutiges Verhalten definiert keine neuen Anforderungen.
 - Duplikate verhindern. Bei Einfügungsfehlern bereits erstellten Link manuell
   kopierbar anbieten.
 - Alle Office-COM-Zugriffe auf dem Outlook-UI-Thread.
+
+## Aktueller Zwischenschritt: Kalenderbutton mit Mock (1.2.0.0)
+
+Auf ausdrücklichen Nutzerwunsch öffnet „Kalender → Start → Neues Meetling“ bereits
+einen neuen nativen Besprechungsentwurf. Die Konferenzerstellung ist vollständig
+gemockt; der klar markierte .invalid-Link ist kein echter Teilnehmerlink.
+Kein HTTP, kein Authentifizierungsfluss, kein Save/Send. Dieser Zwischenschritt
+bestätigt oder übernimmt keinen bisherigen API-Endpunkt. Erst später nach
+Bereitstellung des API-Vertrags durch eine echte Konferenzerstellung ersetzen.

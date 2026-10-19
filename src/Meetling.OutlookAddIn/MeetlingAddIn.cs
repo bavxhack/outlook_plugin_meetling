@@ -12,7 +12,8 @@ namespace Meetling.OutlookAddIn;
 [ComDefaultInterface(typeof(IMeetlingRibbonCallbacks))]
 public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibility, IMeetlingRibbonCallbacks
 {
-    // No field initializers, Outlook RCWs, settings or network dependencies on the startup path.
+    // No settings, filesystem or network work in the constructor.
+    private object? application;
     public MeetlingAddIn() { }
 
     public string GetCustomUI(string ribbonId)
@@ -23,6 +24,7 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
             switch (ribbonId)
             {
                 case "Microsoft.Outlook.Explorer":
+                    return RibbonXml.Replace("<tabs>", "<tabs>" + CalendarTabXml);
                 case "Microsoft.Outlook.Appointment":
                 case "Microsoft.Outlook.Mail.Compose":
                     return RibbonXml;
@@ -32,6 +34,27 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
             }
         }
         catch (Exception ex) { DiagnosticLog.Write("GetCustomUI failed", ex); return string.Empty; }
+    }
+
+    public object? GetMeetlingImage(object control)
+    {
+        try { return RibbonImages.GetPicture(); }
+        catch (Exception ex) { DiagnosticLog.Write("GetMeetlingImage failed", ex); return null; }
+    }
+
+    public void CreateMeeting(object control)
+    {
+        try
+        {
+            DiagnosticLog.WriteInfo("CreateMeeting entered (mock)");
+            AppointmentComposer.Open(application, MockMeetingDraft.Create());
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLog.Write("CreateMeeting failed", ex);
+            try { LocalDialog.Show("Der Outlook-Termin konnte nicht geöffnet werden. Bitte die Meetling-Diagnose prüfen."); }
+            catch (Exception dialogError) { DiagnosticLog.Write("CreateMeeting error dialog failed", dialogError); }
+        }
     }
 
     public void TestPlugin(object control)
@@ -59,15 +82,24 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
 
     public void OnConnection(object app, ext_ConnectMode connectMode, object addInInstance, ref Array custom)
     {
-        try { DiagnosticLog.WriteInfo("OnConnection ConnectMode=" + connectMode); }
+        try { application = app; DiagnosticLog.WriteInfo("OnConnection ConnectMode=" + connectMode); }
         catch (Exception ex) { DiagnosticLog.Write("OnConnection failed", ex); }
     }
 
     public void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom)
-        => DiagnosticLog.WriteInfo("OnDisconnection RemoveMode=" + removeMode);
+    { application = null; DiagnosticLog.WriteInfo("OnDisconnection RemoveMode=" + removeMode); }
     public void OnAddInsUpdate(ref Array custom) => DiagnosticLog.WriteInfo("OnAddInsUpdate");
     public void OnStartupComplete(ref Array custom) => DiagnosticLog.WriteInfo("OnStartupComplete");
-    public void OnBeginShutdown(ref Array custom) => DiagnosticLog.WriteInfo("OnBeginShutdown");
+    public void OnBeginShutdown(ref Array custom)
+    { application = null; DiagnosticLog.WriteInfo("OnBeginShutdown"); }
+
+    // Calendar Home only; creation is explicitly mocked and performs no API request.
+    private const string CalendarTabXml = @"<tab idMso='TabCalendar'>
+    <group id='MeetlingCalendarGroup' label='Meetling' insertAfterMso='GroupCalendarNew' getImage='GetMeetlingImage'>
+      <button id='MeetlingCalendarStart' label='Neues Meetling' size='large' getImage='GetMeetlingImage'
+        enabled='true' onAction='CreateMeeting' screentip='Neue Outlook-Besprechung mit Meetling-Testlink öffnen.'/>
+    </group>
+  </tab>";
 
     private const string RibbonXml = @"<customUI xmlns='http://schemas.microsoft.com/office/2009/07/customui'>
   <ribbon><tabs><tab id='MeetlingTab' label='Meetling'>

@@ -14,4 +14,9 @@ public interface IMeetlingRibbonCallbacks
 
     [DispId(2)]
     void OpenSettings([In, MarshalAs(UnmanagedType.IDispatch)] object control);
+    [DispId(3)]
+    [return: MarshalAs(UnmanagedType.IDispatch)]
+    object? GetMeetlingImage([In, MarshalAs(UnmanagedType.IDispatch)] object control);
+    [DispId(4)]
+    void CreateMeeting([In, MarshalAs(UnmanagedType.IDispatch)] object control);
 }
