@@ -34,7 +34,7 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
         catch (Exception ex) { DiagnosticLog.Write("GetCustomUI failed", ex); return string.Empty; }
     }
 
-    public void TestPlugin(Office.IRibbonControl control)
+    public void TestPlugin(object control)
     {
         try
         {
@@ -45,7 +45,7 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
         catch (Exception ex) { DiagnosticLog.Write("TestPlugin failed", ex); }
     }
 
-    public void OpenSettings(Office.IRibbonControl control)
+    public void OpenSettings(object control)
     {
         try
         {

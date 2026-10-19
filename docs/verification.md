@@ -36,6 +36,10 @@ Microsoft-Referenzen:
 [IRibbonControl](https://learn.microsoft.com/en-us/dotnet/api/microsoft.office.core.iribboncontrol?view=office-pia),
 [Callback-Beispiele](https://learn.microsoft.com/en-us/office/vba/api/office.iribboncontrol).
 Methodenreihenfolge und explizites Marshalling sind Bestandteil der lokalen Verträge.
+Die Callbackparameter werden als IDispatch/object transportiert; die Basis
+greift nicht auf IRibbonControl oder dessen Fensterkontext zu. Dadurch benötigt
+die Callback-Typinformation keine registrierte Office-Typbibliothek, auch im
+Office-freien Windows-CI-Test.
 ClassInterface.None und ComDefaultInterface werden gemeinsam verwendet.
 Die Assembly ist standardmäßig COM-unsichtbar; nur explizite Verträge und Klasse
 werden exponiert. Keine AutoDual-Klassen.
