@@ -44,8 +44,13 @@ function Get-OutlookArchitecture {
                 $key = $root.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\App Paths\OUTLOOK.EXE')
                 if ($null -ne $key) {
                     try {
-                        $path = ([string]$key.GetValue('')).Trim('"')
-                        if (Test-Path -LiteralPath $path -PathType Leaf) { $candidates += Get-PeArchitecture $path }
+                        $path = ([string]$key.GetValue('')).Trim().Trim('"').Trim()
+                        # App Paths may exist without a usable default value.
+                        # Test-Path rejects empty strings instead of returning false.
+                        if (-not [string]::IsNullOrWhiteSpace($path) -and
+                            (Test-Path -LiteralPath $path -PathType Leaf)) {
+                            $candidates += Get-PeArchitecture $path
+                        }
                     } finally { $key.Dispose() }
                 }
             } finally { $root.Dispose() }

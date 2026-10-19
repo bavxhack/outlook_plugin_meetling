@@ -14,8 +14,8 @@ try {
     New-LocalUser -Name $userName -Password $password -AccountNeverExpires | Out-Null
     $usersGroup = Get-LocalGroup -SID ([Security.Principal.SecurityIdentifier]::new('S-1-5-32-545'))
     Add-LocalGroupMember -Group $usersGroup -Member $userName
-    New-Item -ItemType Directory -Path "$root\package", "$root\harness" -Force | Out-Null
-    Copy-Item "$PackageDirectory\*" "$root\package" -Recurse -Force
+    New-Item -ItemType Directory -Path "$root\package (Outlook test)", "$root\harness" -Force | Out-Null
+    Copy-Item "$PackageDirectory\*" "$root\package (Outlook test)" -Recurse -Force
     Copy-Item "$HarnessDirectory\*" "$root\harness" -Recurse -Force
     Copy-Item (Join-Path $PSScriptRoot 'Run-InstalledSmoke.ps1') "$root\Run.ps1"
     # Grant access only to this disposable test directory and this test account.
