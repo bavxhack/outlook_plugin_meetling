@@ -62,7 +62,11 @@ if ($TestComActivation) {
         $lines.Add('COM activation succeeded. No lifecycle or button methods invoked. This does not prove loading in Outlook.')
     } catch {
         $activationFailed = $true
-        $lines.Add("COM activation failed: $($_.Exception.GetType().FullName) HRESULT=$('{0:X8}' -f $_.Exception.HResult)")
+        $failure = $_.Exception
+        while ($null -ne $failure) {
+            $lines.Add("COM activation failed: $($failure.GetType().FullName) HRESULT=$('{0:X8}' -f $failure.HResult)")
+            $failure = $failure.InnerException
+        }
     } finally {
         if ($null -ne $instance -and [Runtime.InteropServices.Marshal]::IsComObject($instance)) {
             [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($instance)
@@ -83,4 +87,4 @@ if ($parent) { New-Item -ItemType Directory -Force $parent | Out-Null }
 $lines | Set-Content -LiteralPath $OutputPath -Encoding UTF8
 Write-Host "Diagnosis written: $OutputPath"
 
-if ($activationFailed) { throw 'COM activation failed; see the diagnosis report.' }
+if ($activationFailed) { $lines | Write-Output; throw 'COM activation failed; see the diagnosis report.' }
