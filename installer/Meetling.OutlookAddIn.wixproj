@@ -1,0 +1,6 @@
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup><Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration><Platform Condition=" '$(Platform)' == '' ">x64</Platform><ProductVersion>3.10</ProductVersion><ProjectGuid>{3D3080B1-243E-42A6-A7DF-51D306269660}</ProjectGuid><SchemaVersion>2.0</SchemaVersion><OutputName>Meetling.OutlookAddIn-$(Platform)</OutputName><OutputType>Package</OutputType></PropertyGroup>
+  <Import Project="$(WixTargetsPath)" Condition=" '$(WixTargetsPath)' != '' " />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets" Condition=" '$(WixTargetsPath)' == '' AND Exists('$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets') " />
+  <ItemGroup><Compile Include="Product.wxs" /></ItemGroup>
+</Project>
