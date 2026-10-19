@@ -63,3 +63,16 @@ nicht Bestandteil der ausgelieferten Installationspakete.
 
 Windows-/Outlook-Versionen und Bitness müssen in docs/smoke-test.md nach
 tatsächlicher Ausführung ergänzt werden. WiX bleibt ausdrücklich nicht abgenommen.
+
+## Windows-CI-Kontext
+
+Der gehostete Runner läuft mit Administrator-Token. Die ersten isolierten
+Aktivierungen unter diesem Konto meldeten HRESULT 0x80070002 trotz vorhandener
+HKCU-Registrierung und lesbarem Paket. Das ist kein erfolgreicher COM-Nachweis.
+Der endgültige Testweg führt daher Installation, Wiederinstallation, Diagnose
+und Harness unter einem temporären lokalen Standardbenutzer mit geladenem
+Benutzerprofil aus. Konto und Testverzeichnis werden danach entfernt. Diese
+CI-Hilfsskripte werden nicht an Anwender ausgeliefert. Die Produktinstallation
+bleibt ausschließlich unter HKCU; Outlook soll ohne Administratorrechte starten.
+
+[Microsoft: COM und Benutzerregistrierung bei erhöhten Rechten](https://learn.microsoft.com/en-us/windows/win32/com/the-com-elevation-moniker).

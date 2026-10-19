@@ -26,7 +26,7 @@ rufen keine API auf und verändern keine Outlook-Elemente.
    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -OutlookBitness x64
    ```
 
-   Keine Administratorrechte erforderlich. Lokale Unternehmensrichtlinien gelten
+   Als normaler Benutzer installieren und Outlook ohne Administratorrechte starten. Lokale Unternehmensrichtlinien gelten
    weiterhin. .NET Framework 4.8 muss installiert sein.
 4. Registrierung abgeschlossen bedeutet noch keine bestätigte Outlook-Ladung.
    Jetzt [die manuelle Abnahme](docs/smoke-test.md) vollständig durchführen.
@@ -104,7 +104,7 @@ Für lokale Installation daraus:
 `installer\Install-AddIn.ps1 -OutlookBitness x64`.
 
 Der bestehende Windows-Workflow baut beide Architekturen, prüft und verpackt
-alle DLLs, installiert das Paket zweimal und führt einen passenden nativen
+alle DLLs, installiert das Paket zweimal unter einem temporären Standardbenutzerkonto und führt einen passenden nativen
 Prozess mit dem .NET-Framework-Smoke-Harness aus. Dieser aktiviert die
 registrierte COM-Klasse, prüft die Hostinterfaces und ruft die Callbacknamen
 über echtes Standard-IDispatch (`GetIDsOfNames` und `Invoke`) auf. Nur die

@@ -79,7 +79,7 @@ jobs:
       - name: PowerShell-Syntax prüfen
         shell: powershell
         run: |
-          Get-ChildItem installer -Filter *.ps1 | ForEach-Object {
+          Get-ChildItem installer,tests -Filter *.ps1 | ForEach-Object {
               $tokens = $null
               $parseErrors = $null
               [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors)
@@ -148,19 +148,7 @@ jobs:
       - name: Paket installieren, erneut installieren und COM-Grenze prüfen
         shell: powershell
         run: |
-          $package = "artifacts\Meetling-OutlookAddIn-${{ matrix.architecture }}"
-          try {
-              & "$package\Install.ps1" -OutlookBitness ${{ matrix.architecture }}
-              & "$package\Install.ps1" -OutlookBitness ${{ matrix.architecture }}
-              $ps = if ('${{ matrix.architecture }}' -eq 'x86') { "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe" } else { "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" }
-              & $ps -NoProfile -ExecutionPolicy Bypass -File "$package\Diagnose.ps1" -OutlookBitness ${{ matrix.architecture }} -TestComActivation -OutputPath "artifacts\COM-diagnosis.txt"
-              if ($LASTEXITCODE -ne 0) { throw 'Isolated COM activation failed' }
-              $exe = "tests\Meetling.OutlookAddIn.SmokeTests\bin\${{ matrix.architecture }}\Release\net48\Meetling.OutlookAddIn.SmokeTests.exe"
-              & $exe
-              if ($LASTEXITCODE -ne 0) { throw 'COM smoke test failed' }
-          } finally {
-              & "$package\Uninstall.ps1" -OutlookBitness ${{ matrix.architecture }}
-          }
+          & tests\Invoke-StandardUserSmoke.ps1 -Architecture ${{ matrix.architecture }} -PackageDirectory "artifacts\Meetling-OutlookAddIn-${{ matrix.architecture }}" -HarnessDirectory "tests\Meetling.OutlookAddIn.SmokeTests\bin\${{ matrix.architecture }}\Release\net48"
 
       - name: DLL-Paket hochladen
         uses: actions/upload-artifact@v4
