@@ -10,6 +10,8 @@ $view = if ($OutlookBitness -eq 'x86') { [Microsoft.Win32.RegistryView]::Registr
 $lines = [Collections.Generic.List[string]]::new()
 $lines.Add("Meetling diagnosis $(Get-Date -Format o)")
 $lines.Add("Windows: $([Environment]::OSVersion.VersionString)")
+$principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
+$lines.Add("Administrator token: $($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))")
 $lines.Add("PowerShell: $($PSVersionTable.PSVersion); process x64: $([Environment]::Is64BitProcess); target: $OutlookBitness")
 try { $lines.Add("Detected Outlook: $(Get-OutlookArchitecture)") } catch { $lines.Add("Outlook architecture: $($_.Exception.GetType().FullName)") }
 $path = $null
@@ -65,6 +67,9 @@ if ($TestComActivation) {
         $failure = $_.Exception
         while ($null -ne $failure) {
             $lines.Add("COM activation failed: $($failure.GetType().FullName) HRESULT=$('{0:X8}' -f $failure.HResult)")
+            if ($failure -is [IO.FileNotFoundException] -or $failure -is [IO.FileLoadException]) {
+                $lines.Add("AssemblyFile = $($failure.FileName)")
+            }
             $failure = $failure.InnerException
         }
     } finally {

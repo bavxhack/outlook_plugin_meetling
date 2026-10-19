@@ -60,6 +60,16 @@ Invoke-RegistryCommand @('ADD', $inprocKey, '/v', 'Class', '/t', 'REG_SZ', '/d',
 Invoke-RegistryCommand @('ADD', $inprocKey, '/v', 'Assembly', '/t', 'REG_SZ', '/d', $assemblyName, '/f', $viewArgument)
 Invoke-RegistryCommand @('ADD', $inprocKey, '/v', 'RuntimeVersion', '/t', 'REG_SZ', '/d', 'v4.0.30319', '/f', $viewArgument)
 Invoke-RegistryCommand @('ADD', $inprocKey, '/v', 'CodeBase', '/t', 'REG_SZ', '/d', $codeBase, '/f', $viewArgument)
+# Match RegAsm's version-specific CLR activation metadata, derived from the package.
+$versionKey = "$inprocKey\$($identity.Version)"
+foreach ($entry in @{
+    Class = $className
+    Assembly = $assemblyName
+    RuntimeVersion = 'v4.0.30319'
+    CodeBase = $codeBase
+}.GetEnumerator()) {
+    Invoke-RegistryCommand @('ADD', $versionKey, '/v', $entry.Key, '/t', 'REG_SZ', '/d', $entry.Value, '/f', $viewArgument)
+}
 Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'FriendlyName', '/t', 'REG_SZ', '/d', 'Meetling', '/f', $viewArgument)
 Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'Description', '/t', 'REG_SZ', '/d', 'Lokale Meetling-Basisversion.', '/f', $viewArgument)
 Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'LoadBehavior', '/t', 'REG_DWORD', '/d', '3', '/f', $viewArgument)
