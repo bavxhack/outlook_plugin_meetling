@@ -1,149 +1,131 @@
-# Meetling Outlook Add-in
+# Meetling für Outlook Classic – lokale Basisversion
 
-Ein COM-Add-in für **klassisches Microsoft Outlook 2021 und 2024 unter Windows**. In einem geöffneten Termin ergänzt es die Ribbon-Gruppe **Meetling** mit **Konferenz erstellen** und **Einstellungen**. Microsoft 365 und das neue Outlook sind nicht Zielplattformen.
+Klassisches COM-Add-in für .NET Framework 4.8, kein VSTO. ProgID
+`Meetling.OutlookAddIn`, CLSID `{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}`.
+Version 1.1.0.0. Unterstützt Outlook Classic unter Windows; das neue Outlook
+unterstützt dieses COM-Add-in nicht.
 
-## Voraussetzungen
+Der eigene Tab **Meetling** erscheint im Hauptfenster, im separat geöffneten
+Termin und im separaten E-Mail-Verfassen-Fenster. **Plugin testen** zeigt eine
+lokale Bestätigung mit Assemblyversion. **Einstellungen** zeigt den Ausbauhinweis,
+Version und Diagnosepfad. **Meetling-Konferenz** ist deaktiviert und hat keinen
+Callback. Start, Ribbon und Buttons lesen keine Einstellungen oder Secrets,
+rufen keine API auf und verändern keine Outlook-Elemente.
 
-- Windows 10/11 mit .NET Framework 4.8
-- klassisches Outlook 2021 oder Outlook 2024
-- Visual Studio 2022 mit „.NET-Desktopentwicklung“ und installierten Office Primary Interop Assemblies
-- optional WiX Toolset 3.14 für das MSI
-- eine Meetling/Jitsi-Admin-Instanz, API-Schlüssel und Name/ID eines dort hinterlegten Konferenzservers
+## Standardweg: ZIP und Windows PowerShell 5.1
 
-## Kompilierung
+1. Outlook-Bitness unter **Datei → Office-Konto → Info zu Outlook** feststellen.
+   Die Windows-Bitness allein reicht nicht.
+2. Aus den [Actions-Artefakten](https://github.com/bavxhack/outlook_plugin_meetling/actions/workflows/build-outlook-addin.yml)
+   das passende `Meetling-OutlookAddIn-x86.zip` oder `-x64.zip` vollständig
+   entpacken. Die Pakete entstehen erst nach erfolgreicher Windows-CI.
+3. Outlook vollständig schließen. Im entpackten Verzeichnis Windows PowerShell
+   5.1 öffnen und ausführen (für 32-Bit-Outlook `x86` einsetzen):
 
-Outlook und Add-in müssen dieselbe Bitness besitzen. In einer „Developer PowerShell for VS 2022“:
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -OutlookBitness x64
+   ```
 
-```powershell
-msbuild .\Meetling.OutlookAddIn.sln /restore /t:Build /p:Configuration=Release /p:Platform=x64
-# oder
-msbuild .\Meetling.OutlookAddIn.sln /restore /t:Build /p:Configuration=Release /p:Platform=x86
-```
+   Keine Administratorrechte erforderlich. Lokale Unternehmensrichtlinien gelten
+   weiterhin. .NET Framework 4.8 muss installiert sein.
+4. Registrierung abgeschlossen bedeutet noch keine bestätigte Outlook-Ladung.
+   Jetzt [die manuelle Abnahme](docs/smoke-test.md) vollständig durchführen.
 
-Die Bibliotheken liegen danach unter `src\Meetling.OutlookAddIn\bin\<Plattform>\Release\net48`.
+Der Installer prüft Paketidentität, explizite PE-/Assemblyarchitektur, Framework,
+laufendes Outlook und – soweit verfügbar – die Bitness der registrierten
+OUTLOOK.EXE bzw. Outlook-spezifische Registrywerte. Ist Outlook nicht zuverlässig
+erkennbar, warnt er; die manuelle Bitnessprüfung bleibt erforderlich.
+Laufzeit-DLLs werden vollständig nach
+`%LOCALAPPDATA%\Meetling\OutlookAddIn\<x86|x64>\<Version>` kopiert und per Hash
+verglichen. CodeBase und Assemblyidentität werden aus diesem Paket abgeleitet;
+die Registrierung erfolgt pro Benutzer in der passenden Registryansicht.
+Dieselbe Version kann bei geschlossenem Outlook erneut installiert werden.
+Ältere Versionsordner bleiben bis zur Deinstallation erhalten. Keine parallelen
+MSI- und ZIP-Installationen oder Installation beider Bitnessen vornehmen.
 
-### Fertige DLL aus GitHub Actions herunterladen
-
-Die Workflow-Datei `.github/workflows/build-outlook-addin.yml` baut und testet das Add-in mit einem festgelegten .NET-8-SDK auf einem Windows-2022-Runner für x86 und x64. Der Workflow läuft bei jedem Push, bei Pull Requests und manuell über **Actions > Outlook-Add-in erstellen > Run workflow**. Vor dem Veröffentlichen kontrolliert er, dass beide Add-in-DLLs vorhanden und beide ZIP-Dateien lesbar sind.
-
-Nach einem erfolgreichen Lauf stehen unter **Artifacts** diese direkt installierbaren Pakete bereit:
-
-- `Meetling-OutlookAddIn-x86` für 32-Bit-Outlook
-- `Meetling-OutlookAddIn-x64` für 64-Bit-Outlook
-
-Das passende ZIP herunterladen, entpacken, Outlook schließen und im entpackten Verzeichnis ausführen:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\Install.ps1 -OutlookBitness x64
-```
-
-Für 32-Bit-Outlook wird `x86` angegeben. Die Hauptdatei `Meetling.OutlookAddIn.dll` benötigt die mitgelieferte `Meetling.Core.dll`; deshalb sollten die DLLs nicht einzeln aus dem Paket entfernt werden. Das Paket enthält außerdem SHA-256-Prüfsummen.
-
-Bei jedem erfolgreichen Push beziehungsweise manuellen Lauf wird das Vorab-Release **Meetling Outlook Add-in – aktueller Build** unter **Releases** neu erstellt. Dort können die beiden ZIP-Dateien ohne Öffnen des Workflow-Laufs heruntergeladen werden. Ein Tag wie `v1.0.0` erzeugt stattdessen ein dauerhaftes, versioniertes Release. Pull Requests erzeugen aus Sicherheitsgründen nur Workflow-Artefakte und kein Release.
-
-## Outlook-Bitness bestimmen
-
-In Outlook **Datei > Office-Konto > Info zu Outlook** öffnen. Am Anfang der Versionszeile steht „32-Bit“ oder „64-Bit“. Alternativ kann `HKLM\Software\Microsoft\Office\ClickToRun\Configuration\Platform` geprüft werden. Nicht die Windows-, sondern die Outlook-Bitness ist maßgeblich.
-
-## Installation und Registrierung
-
-Outlook schließen und PowerShell mit normalen Benutzerrechten öffnen. Die Installation ist benutzerbezogen und benötigt keine Administratorrechte:
+Deinstallation bei geschlossenem Outlook:
 
 ```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\installer\Install-AddIn.ps1 -OutlookBitness x64
-# Für 32-Bit-Outlook: -OutlookBitness x86
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Uninstall.ps1 -OutlookBitness x64
 ```
 
-Das Skript prüft vorab, ob Outlook geschlossen ist, .NET Framework 4.8 installiert ist, die gewählte Bitness zu Outlook passt und alle Laufzeit-DLLs vorhanden sind. Heruntergeladene DLLs werden mit `Unblock-File` entsperrt. Danach kopiert das Skript die Dateien nach `%LOCALAPPDATA%\Meetling\OutlookAddIn` und registriert sowohl die COM-Klasse als auch das Outlook-Add-in ausschließlich benutzerbezogen unter `HKCU`. Für 32- und 64-Bit-Outlook wird ausdrücklich die passende Windows-Registry-Ansicht verwendet. Administratorrechte und `RegAsm.exe` sind nicht erforderlich. Danach Outlook neu starten.
+Entfernt ausschließlich eigene Registrierung und bekannte Laufzeit-DLLs.
+Einstellungen, Secrets und Logs bleiben erhalten. Für Updates denselben
+Installationsweg verwenden; Einstellungen werden nicht migriert oder gelesen.
 
-### MSI (optional und signierbar)
-
-Nach dem passenden Release-Build mit installiertem WiX Toolset:
+## Diagnose
 
 ```powershell
-msbuild .\installer\Meetling.OutlookAddIn.wixproj /p:Configuration=Release /p:Platform=x64
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Diagnose.ps1 -OutlookBitness x64
 ```
 
-Für x86 entsprechend `Platform=x86`. Das resultierende MSI kann anschließend mit dem unternehmenseigenen Code-Signing-Zertifikat und `signtool sign` signiert werden. Für produktive Verteilung wird ein Strong Name beziehungsweise eine organisationsspezifisch signierte Assembly empfohlen.
+Bericht standardmäßig auf dem Desktop. Das Werkzeug liest eigene Registrierung
+in HKCU und HKLM, prüft das registrierte Paket und zeigt letzte Lifecycle-Einträge.
+Es liest keine Secrets, Mailtexte, Konferenzlinks oder vollständigen
+Windows-Ereignismeldungen. Das Log liegt unter
+`%LOCALAPPDATA%\Meetling\OutlookAddIn\diagnose.log`, mit maximal rund 256 KiB
+pro Datei und einer rotierenden Sicherung. Bei Schreibfehlern fällt Logging
+still aus; ein fehlendes Log allein beweist keinen Ladefehler.
 
-## Deinstallation
+Ein COM-Aktivierungstest ist optional und startet nur ausdrücklich mit
+`-TestComActivation`, bei geschlossenem Outlook und unter Windows PowerShell
+5.1 mit passender Prozessarchitektur:
 
-Outlook schließen, dann:
+- x64: `%WINDIR%\System32\WindowsPowerShell\v1.0\powershell.exe`
+- x86 auf 64-Bit-Windows: `%WINDIR%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe`
+
+Dieser Test erzeugt nur die COM-Instanz; er öffnet keine Dialoge und ersetzt
+keinen Outlook-Test. Falsche Prozessbitness und PowerShell 7 werden hierfür
+abgewiesen. Im Repository heißen die Skripte `Install-PublishedAddIn.ps1`,
+`Uninstall-AddIn.ps1` und `Collect-Diagnostics.ps1`.
+
+Bei Deaktivierung: **Datei → Optionen → Add-Ins → Verwalten: Deaktivierte
+Elemente → Los** und gezielt Meetling reaktivieren. Anschließend unter
+**COM-Add-Ins** ausschließlich Meetling aktivieren. Gegebenenfalls unter
+**Langsame und deaktivierte COM-Add-Ins** prüfen. Keine Resiliency-/DisabledItems-
+Schlüssel pauschal löschen. Zur XML-Diagnose unter den erweiterten Outlook-
+Optionen **Fehler von Add-In-Benutzeroberflächen anzeigen** aktivieren
+(Bezeichnung kann je nach Outlook-Version variieren).
+
+## Windows-Build und automatisierte Prüfung
+
+Visual Studio Build Tools 2022 mit .NET Framework 4.8 Targeting Pack und .NET SDK
+8 erforderlich. Im Developer PowerShell:
 
 ```powershell
-.\installer\Uninstall-AddIn.ps1 -OutlookBitness x64
+msbuild src\Meetling.OutlookAddIn\Meetling.OutlookAddIn.csproj /restore /t:Rebuild /p:Configuration=Release /p:Platform=x86
+msbuild src\Meetling.OutlookAddIn\Meetling.OutlookAddIn.csproj /restore /t:Rebuild /p:Configuration=Release /p:Platform=x64
+msbuild tests\Meetling.Core.Tests\Meetling.Core.Tests.csproj /restore /t:Rebuild /p:Configuration=Release
+& tests\Meetling.Core.Tests\bin\Release\net48\Meetling.Core.Tests.exe
 ```
 
-Die persönlichen Einstellungen unter `%LOCALAPPDATA%\Meetling\OutlookAddIn` bleiben zur Vermeidung eines unbeabsichtigten Schlüsselverlusts erhalten und können manuell gelöscht werden.
-Das Deinstallationsskript ist wiederholt ausführbar: Bereits fehlende Registry-Einträge werden als erfolgreich entfernt behandelt und verursachen keinen Fehler.
+Ausgabe explizit `src\Meetling.OutlookAddIn\bin\<Architektur>\Release\net48`.
+Für lokale Installation daraus:
+`installer\Install-AddIn.ps1 -OutlookBitness x64`.
 
-## Konfiguration
+Der bestehende Windows-Workflow baut beide Architekturen, prüft und verpackt
+alle DLLs, installiert das Paket zweimal und führt einen passenden nativen
+Prozess mit dem .NET-Framework-Smoke-Harness aus. Dieser aktiviert die
+registrierte COM-Klasse, prüft die Hostinterfaces und ruft die Callbacknamen
+über echtes Standard-IDispatch (`GetIDsOfNames` und `Invoke`) auf. Nur die
+interne Dialogausgabe wird im Test ersetzt; keine CI-Dialoge. Zusätzlich prüft
+er XML-Struktur, drei Fensterkontexte, deaktivierte Konferenz und Lifecycle.
+Core-Tests sind reine Logiktests, keine Outlook-Integrationstests.
 
-1. Einen Termin in einem eigenen Fenster öffnen.
-2. **Meetling > Einstellungen** wählen.
-3. Basis-URL (ohne API-Pfad), API-Schlüssel und den in Meetling hinterlegten Konferenzserver eintragen.
-4. Optional Organisator-E-Mail und Keycloak-ID eintragen.
+**WiX/MSI ist ein nicht abgenommener alternativer Weg.** Der vorhandene Entwurf
+enthält weiterhin feste Versions-/Assemblyangaben, abweichenden Zielordner,
+keine Outlook-Interop-DLL und keine gleichwertigen Vorabprüfungen. Er wird in
+diesem Meilenstein weder ausgeliefert noch als Standardweg empfohlen.
 
-Die Basis-URL wird validiert und abschließende `/` werden entfernt. Unverschlüsseltes HTTP wird nur bei localhost ohne Warnung akzeptiert. Der API-Schlüssel wird getrennt von den übrigen benutzerbezogenen Einstellungen mit Windows DPAPI (`CurrentUser`) verschlüsselt gespeichert und nie protokolliert.
+## Prüfstatus und weitere Arbeit
 
-## Verwendung
+Ausgangsstand erneut geprüft: `main` / `c623582f61fcb165f5cb40338642bd5de3eab27d`.
+Bestätigte Codebefunde und verbleibende Grenzen:
+[docs/verification.md](docs/verification.md).
+Einen aktuellen erfolgreichen CI-Lauf und die konkrete Windows-/Outlook-Abnahme
+getrennt nachweisen. Eine erfolgreiche Kompilierung oder COM-Aktivierung belegt
+keine Ribbon-Anzeige in Outlook.
 
-Terminbetreff sowie Start und Ende festlegen und **Konferenz erstellen** klicken. Das Add-in ermittelt bevorzugt die SMTP-Adresse des sendenden Kontos und verwendet andernfalls die konfigurierte Organisator-E-Mail. Nach erfolgreicher Anlage wird der Browser-Teilnehmerlink am Anfang des Termintexts ergänzt; vorhandenes HTML und Signaturen bleiben erhalten. UID und Link werden als Outlook-Benutzereigenschaften `MeetlingUid` und `MeetlingParticipantLink` gespeichert. Dadurch wird ein versehentlicher zweiter Aufruf blockiert. Der Termin wird abschließend gespeichert.
-
-## API-Anbindung
-
-Die Implementierung verwendet ausschließlich:
-
-- `POST {Basis-URL}/api/v1/room` mit `application/x-www-form-urlencoded`: `email`, `name`, `duration`, `server`, `start` und optional `keycloakId`.
-- `GET {Basis-URL}/api/v1/info/{uid}`.
-- `Authorization: Bearer <API-Schlüssel>` bei beiden Aufrufen.
-- `uid` aus der POST-Antwort und `room_url` als Browser-Teilnehmerlink aus der Info-Antwort.
-
-Referenz sind die [API-Endpunkte im Jitsi-Admin-Wiki](https://github.com/H2-invent/jitsi-admin/wiki/API-Endpoints) und das [Jitsi-Admin-Quellrepository](https://github.com/H2-invent/jitsi-admin). Vor einem Rollout gegen eine abweichende Serverversion sollte deren API-Vertrag nochmals geprüft werden. Der Client hat ein 30-Sekunden-Timeout, prüft HTTP-Status, JSON, `error`, UID und URL und deaktiviert die TLS-Zertifikatsprüfung nicht.
-
-## Tests
-
-Die Tests sind ein paketfreier .NET-Framework-Konsolen-Testläufer, damit keine Testadapter-Abhängigkeit erforderlich ist:
-
-```powershell
-msbuild .\tests\Meetling.Core.Tests\Meetling.Core.Tests.csproj /restore /p:Configuration=Release
-.\tests\Meetling.Core.Tests\bin\Release\net48\Meetling.Core.Tests.exe
-```
-
-Sie prüfen URL-Regeln, Dauer, Formulardaten, Bearer-Header, erfolgreiche und fehlerhafte Antworten, ungültiges JSON, fehlende UID beziehungsweise URL und Duplikaterkennung. HTTP wird vollständig gemockt. Ribbon-Laden, COM-Lebenszyklus und das tatsächliche Speichern eines Outlook-Termins müssen auf einem Windows-Testrechner mit der jeweiligen 32-/64-Bit-Outlook-Version als Integrationstest geprüft werden.
-
-## Fehlerdiagnose
-
-Kurze Meldungen erscheinen auf Deutsch. Technische Diagnosen stehen in `%LOCALAPPDATA%\Meetling\OutlookAddIn\diagnose.log`. Das Protokoll enthält keine API-Schlüssel und keine vollständigen Termininhalte. Falls Outlook das Add-in deaktiviert: **Datei > Optionen > Add-Ins > Verwalten: Deaktivierte Elemente/COM-Add-Ins** prüfen sowie Bitness und `LoadBehavior=3` kontrollieren.
-
-### „Das Add-in wurde nicht aktiviert, da ein Fehler aufgetreten ist“
-
-Diese Meldung entsteht meistens durch eine falsche x86-/x64-Auswahl, eine von Windows blockierte heruntergeladene DLL oder ein unvollständig entpacktes Paket. Outlook schließen, das neueste vollständige ZIP passend zur Outlook-Bitness erneut entpacken und `Install.ps1` nochmals ausführen. Der Installer prüft diese Fälle und nennt den konkreten Fehler.
-
-Anschließend in Outlook unter **Datei > Optionen > Add-Ins** zuerst **Deaktivierte Elemente** und dann **COM-Add-Ins** öffnen. Falls „Meetling-Konferenzen“ deaktiviert ist, erneut aktivieren. Die installierten Dateien und Registrierung können für 64-Bit-Outlook so geprüft werden:
-
-```powershell
-Get-ChildItem "$env:LOCALAPPDATA\Meetling\OutlookAddIn\x64"
-reg.exe query "HKCU\Software\Microsoft\Office\Outlook\Addins\Meetling.OutlookAddIn" /reg:64
-reg.exe query "HKCU\Software\Classes\CLSID\{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}\InprocServer32" /reg:64
-```
-
-Für 32-Bit-Outlook jeweils `x64` durch `x86` und `/reg:64` durch `/reg:32` ersetzen. Im Installationsordner müssen mindestens `Meetling.OutlookAddIn.dll`, `Meetling.Core.dll` und `Microsoft.Office.Interop.Outlook.dll` liegen. `LoadBehavior` muss den Wert `3` besitzen und `CodeBase` muss auf die installierte `Meetling.OutlookAddIn.dll` zeigen.
-
-Das Release-Paket enthält außerdem `Diagnose.ps1`. Outlook vollständig schließen und im entpackten Release-Ordner für 64-Bit-Outlook ausführen:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\Diagnose.ps1 -OutlookBitness x64
-```
-
-Für 32-Bit-Outlook `x86` verwenden. Das Skript erstellt auf dem Desktop `Meetling-Outlook-Diagnose.txt` mit DLL-Prüfsummen, Download-Blockierungsstatus, relevanten Registry-Werten, dem lokalen Meetling-Protokoll und passenden Windows-Ereignissen der letzten drei Tage. Binäre Outlook-Resiliency-Daten werden aus Datenschutzgründen nicht ausgegeben. In der Ereignisanzeige sind dieselben Absturzdetails unter **Windows-Protokolle > Anwendung** bei den Quellen **.NET Runtime**, **Application Error** oder **SideBySide** zu finden.
-
-## Bekannte Einschränkungen
-
-- Nur klassische Windows-Outlook-Desktopversionen; kein neues Outlook, Outlook im Web oder macOS.
-- Serien- und Besprechungssemantik folgt dem aktuell geöffneten `AppointmentItem`; Änderungen an einzelnen Vorkommen sollten vor dem Erstellen gespeichert sein.
-- Es gibt bewusst keine global deaktivierte Zertifikatsprüfung; private CAs müssen im Windows-Zertifikatsspeicher vertrauenswürdig sein.
-- Ein nachträglich manuell entfernter Link bleibt über die benutzerdefinierte UID-Eigenschaft als verknüpft erkannt.
+Meetling-API, Serverauswahl und Bearbeitung von Terminen/Nachrichten bleiben
+ausgeschaltet. Der fachliche Ausbau beginnt erst nach Basisabnahme:
+[docs/roadmap.md](docs/roadmap.md).

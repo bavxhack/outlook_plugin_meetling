@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace Extensibility;
 
+[ComVisible(true)]
 public enum ext_ConnectMode
 {
     ext_cm_AfterStartup = 0,
@@ -13,6 +14,7 @@ public enum ext_ConnectMode
     ext_cm_UISetup = 5
 }
 
+[ComVisible(true)]
 public enum ext_DisconnectMode
 {
     ext_dm_HostShutdown = 0,
@@ -22,23 +24,25 @@ public enum ext_DisconnectMode
 }
 
 [ComImport]
+[ComVisible(true)]
 [Guid("B65AD801-ABAF-11D0-BB8B-00A0C90F2744")]
-[InterfaceType(ComInterfaceType.InterfaceIsIDispatch)]
+[InterfaceType(ComInterfaceType.InterfaceIsDual)]
 public interface IDTExtensibility2
 {
     [DispId(1)]
     void OnConnection([MarshalAs(UnmanagedType.IDispatch)] object application, ext_ConnectMode connectMode,
-        [MarshalAs(UnmanagedType.IDispatch)] object addInInstance, ref Array custom);
+        [MarshalAs(UnmanagedType.IDispatch)] object addInInstance, [In, Out, MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref Array custom);
 
     [DispId(2)]
-    void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom);
+    void OnDisconnection(ext_DisconnectMode removeMode, [In, Out, MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref Array custom);
 
     [DispId(3)]
-    void OnAddInsUpdate(ref Array custom);
+    void OnAddInsUpdate([In, Out, MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref Array custom);
 
     [DispId(4)]
-    void OnStartupComplete(ref Array custom);
+    void OnStartupComplete([In, Out, MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref Array custom);
 
     [DispId(5)]
-    void OnBeginShutdown(ref Array custom);
+    void OnBeginShutdown([In, Out, MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref Array custom);
 }
+

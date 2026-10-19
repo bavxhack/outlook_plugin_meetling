@@ -1,12 +1,7 @@
 using Extensibility;
-using Meetling.Core;
 using Office = Meetling.OutlookAddIn.Interop;
-using Outlook = Microsoft.Office.Interop.Outlook;
 using System;
-using System.Net.Http;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Windows.Forms;
 
 namespace Meetling.OutlookAddIn;
 
@@ -14,72 +9,74 @@ namespace Meetling.OutlookAddIn;
 [Guid("4BB84EF2-9D83-4710-BDBA-7CBFD6939B48")]
 [ProgId("Meetling.OutlookAddIn")]
 [ClassInterface(ClassInterfaceType.None)]
-public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibility
+[ComDefaultInterface(typeof(IMeetlingRibbonCallbacks))]
+public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibility, IMeetlingRibbonCallbacks
 {
-    private Outlook.Application? application;
-    private readonly SettingsStore settingsStore = new SettingsStore();
+    // No field initializers, Outlook RCWs, settings or network dependencies on the startup path.
+    public MeetlingAddIn() { }
 
-    public string GetCustomUI(string ribbonId) => ribbonId == "Microsoft.Outlook.Appointment" ? RibbonXml : string.Empty;
-
-    public void CreateConference(Office.IRibbonControl control)
+    public string GetCustomUI(string ribbonId)
     {
-        if (application == null) return;
         try
         {
-            var settings = settingsStore.Load();
-            ValidateRequiredSettings(settings);
-            var appointmentService = new AppointmentService(application);
-            var appointment = appointmentService.ReadCurrent();
-            var email = SettingsValidator.IsValidEmail(appointment.OrganizerEmail) ? appointment.OrganizerEmail : settings.OrganizerEmail;
-            if (!SettingsValidator.IsValidEmail(email)) throw new InvalidOperationException("Die E-Mail-Adresse des Organisators konnte nicht ermittelt werden. Bitte in den Einstellungen hinterlegen.");
-            var request = new ConferenceRequest(email, appointment.Subject, AppointmentRules.CalculateDurationMinutes(appointment.Start, appointment.End), settings.Server, new DateTimeOffset(appointment.Start), settings.KeycloakId);
-            using (var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
+            DiagnosticLog.WriteInfo("GetCustomUI RibbonId=" + ribbonId);
+            switch (ribbonId)
             {
-                var result = new MeetlingApiClient(httpClient).CreateConferenceAsync(settings, request, CancellationToken.None).GetAwaiter().GetResult();
-                appointmentService.ApplyConference(result.Uid, result.ParticipantUri);
+                case "Microsoft.Outlook.Explorer":
+                case "Microsoft.Outlook.Appointment":
+                case "Microsoft.Outlook.Mail.Compose":
+                    return RibbonXml;
+                default:
+                    DiagnosticLog.WriteInfo("GetCustomUI unsupported RibbonId");
+                    return string.Empty;
             }
-            MessageBox.Show("Die Meetling-Konferenz wurde erstellt und in den Termin eingefügt.", "Meetling", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
-        catch (Exception ex) when (ex is MeetlingApiException || ex is InvalidOperationException || ex is ArgumentException)
-        { DiagnosticLog.Write("Konferenz konnte nicht erstellt werden.", ex); MessageBox.Show(ex.Message, "Meetling", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        catch (Exception ex) { DiagnosticLog.Write("GetCustomUI failed", ex); return string.Empty; }
+    }
+
+    public void TestPlugin(Office.IRibbonControl control)
+    {
+        try
+        {
+            DiagnosticLog.WriteInfo("TestPlugin entered");
+            LocalDialog.Show("Meetling wurde geladen. Der Button funktioniert." +
+                Environment.NewLine + "Version: " + DiagnosticLog.Version);
+        }
+        catch (Exception ex) { DiagnosticLog.Write("TestPlugin failed", ex); }
     }
 
     public void OpenSettings(Office.IRibbonControl control)
     {
-        try { using (var form = new SettingsForm(settingsStore.Load())) if (form.ShowDialog() == DialogResult.OK) settingsStore.Save(form.Settings); }
-        catch (Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException || ex is System.Security.Cryptography.CryptographicException)
-        { DiagnosticLog.Write("Einstellungen konnten nicht gespeichert werden.", ex); MessageBox.Show("Die Einstellungen konnten nicht gespeichert werden.", "Meetling", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        try
+        {
+            DiagnosticLog.WriteInfo("OpenSettings entered");
+            LocalDialog.Show("Basisversion: Die Server- und API-Konfiguration folgt im nächsten Schritt." +
+                Environment.NewLine + "Version: " + DiagnosticLog.Version +
+                Environment.NewLine + "Diagnose: " + DiagnosticLog.LogPath);
+        }
+        catch (Exception ex) { DiagnosticLog.Write("OpenSettings failed", ex); }
     }
 
     public void OnConnection(object app, ext_ConnectMode connectMode, object addInInstance, ref Array custom)
     {
-        try
-        {
-            application = app as Outlook.Application ?? throw new InvalidCastException("Outlook-Anwendung konnte nicht initialisiert werden.");
-            DiagnosticLog.WriteInfo("Add-in wurde von Outlook geladen.");
-        }
-        catch (Exception ex)
-        {
-            application = null;
-            DiagnosticLog.Write("Add-in-Initialisierung ist fehlgeschlagen.", ex);
-        }
+        try { DiagnosticLog.WriteInfo("OnConnection ConnectMode=" + connectMode); }
+        catch (Exception ex) { DiagnosticLog.Write("OnConnection failed", ex); }
     }
 
     public void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom)
-    {
-        // Outlook owns the Application RCW. Releasing it here can invalidate a shared RCW and crash Outlook during shutdown.
-        application = null;
-    }
-    public void OnAddInsUpdate(ref Array custom) { }
-    public void OnStartupComplete(ref Array custom) { }
-    public void OnBeginShutdown(ref Array custom) => application = null;
+        => DiagnosticLog.WriteInfo("OnDisconnection RemoveMode=" + removeMode);
+    public void OnAddInsUpdate(ref Array custom) => DiagnosticLog.WriteInfo("OnAddInsUpdate");
+    public void OnStartupComplete(ref Array custom) => DiagnosticLog.WriteInfo("OnStartupComplete");
+    public void OnBeginShutdown(ref Array custom) => DiagnosticLog.WriteInfo("OnBeginShutdown");
 
-    private static void ValidateRequiredSettings(MeetlingSettings settings)
-    {
-        SettingsValidator.NormalizeBaseUrl(settings.BaseUrl);
-        if (string.IsNullOrWhiteSpace(settings.ApiKey)) throw new InvalidOperationException("Bitte hinterlegen Sie zuerst einen API-Schlüssel.");
-        if (string.IsNullOrWhiteSpace(settings.Server)) throw new InvalidOperationException("Bitte hinterlegen Sie zuerst einen Konferenzserver.");
-    }
-
-    private const string RibbonXml = @"<customUI xmlns='http://schemas.microsoft.com/office/2009/07/customui'><ribbon><tabs><tab idMso='TabAppointment'><group id='MeetlingGroup' label='Meetling'><button id='MeetlingCreate' label='Konferenz erstellen' size='large' imageMso='NewMeetingRequest' onAction='CreateConference'/><button id='MeetlingSettings' label='Einstellungen' imageMso='ControlsGallery' onAction='OpenSettings'/></group></tab></tabs></ribbon></customUI>";
+    private const string RibbonXml = @"<customUI xmlns='http://schemas.microsoft.com/office/2009/07/customui'>
+  <ribbon><tabs><tab id='MeetlingTab' label='Meetling'>
+    <group id='MeetlingGroup' label='Meetling'>
+      <button id='MeetlingTest' label='Plugin testen' size='large' enabled='true' onAction='TestPlugin'/>
+      <button id='MeetlingSettings' label='Einstellungen' enabled='true' onAction='OpenSettings'/>
+      <button id='MeetlingConference' label='Meetling-Konferenz' enabled='false'
+        screentip='Wird nach erfolgreichem Test der Basisversion aktiviert.'/>
+    </group>
+  </tab></tabs></ribbon>
+</customUI>";
 }

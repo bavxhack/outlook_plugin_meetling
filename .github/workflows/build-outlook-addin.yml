@@ -21,6 +21,7 @@ jobs:
   test:
     name: Kernlogik testen
     runs-on: windows-2022
+    timeout-minutes: 15
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v4
@@ -34,7 +35,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Tests wiederherstellen und kompilieren
-        shell: pwsh
+        shell: powershell
         run: >-
           msbuild tests\Meetling.Core.Tests\Meetling.Core.Tests.csproj
           /restore /t:Rebuild /m /verbosity:minimal
@@ -43,7 +44,7 @@ jobs:
           /p:RestoreIgnoreFailedSources=false
 
       - name: Tests ausführen
-        shell: pwsh
+        shell: powershell
         run: |
           $testExecutable = "tests\Meetling.Core.Tests\bin\$env:CONFIGURATION\net48\Meetling.Core.Tests.exe"
           if (-not (Test-Path $testExecutable)) {
@@ -58,6 +59,7 @@ jobs:
     name: DLL für ${{ matrix.architecture }}
     needs: test
     runs-on: windows-2022
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -74,8 +76,18 @@ jobs:
       - name: MSBuild bereitstellen
         uses: microsoft/setup-msbuild@v2
 
+      - name: PowerShell-Syntax prüfen
+        shell: powershell
+        run: |
+          Get-ChildItem installer -Filter *.ps1 | ForEach-Object {
+              $tokens = $null
+              $parseErrors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors)
+              if ($parseErrors.Count -gt 0) { throw ($parseErrors | Out-String) }
+          }
+
       - name: Add-in wiederherstellen und bauen
-        shell: pwsh
+        shell: powershell
         run: >-
           msbuild src\Meetling.OutlookAddIn\Meetling.OutlookAddIn.csproj
           /restore /t:Rebuild /m /verbosity:minimal
@@ -85,7 +97,7 @@ jobs:
           /p:RestoreIgnoreFailedSources=false
 
       - name: Installationspaket erstellen und prüfen
-        shell: pwsh
+        shell: powershell
         run: |
           $source = "src\Meetling.OutlookAddIn\bin\${{ matrix.architecture }}\$env:CONFIGURATION\net48"
           $packageName = "Meetling-OutlookAddIn-${{ matrix.architecture }}"
@@ -109,7 +121,12 @@ jobs:
           Copy-Item installer\Install-PublishedAddIn.ps1 (Join-Path $package 'Install.ps1') -Force
           Copy-Item installer\Uninstall-AddIn.ps1 (Join-Path $package 'Uninstall.ps1') -Force
           Copy-Item installer\Collect-Diagnostics.ps1 (Join-Path $package 'Diagnose.ps1') -Force
+          Copy-Item installer\Package-Tools.ps1 $package -Force
           Copy-Item README.md $package -Force
+          Copy-Item docs $package -Recurse -Force
+          . installer\Package-Tools.ps1
+          $identity = Get-PackageIdentity $package '${{ matrix.architecture }}'
+          if (-not $identity) { throw 'Package identity missing' }
 
           Get-FileHash (Join-Path $package '*.dll') -Algorithm SHA256 |
               Sort-Object Path |
@@ -120,6 +137,29 @@ jobs:
           Compress-Archive -Path (Join-Path $package '*') -DestinationPath $archive -Force
           if (-not (Test-Path $archive) -or (Get-Item $archive).Length -eq 0) {
               throw "Release-Archiv wurde nicht korrekt erzeugt: $archive"
+          }
+
+      - name: COM- und Ribbon-Smoke-Test bauen
+        shell: powershell
+        run: |
+          msbuild tests\Meetling.OutlookAddIn.SmokeTests\Meetling.OutlookAddIn.SmokeTests.csproj /restore /t:Rebuild /verbosity:minimal /p:Configuration=Release /p:Platform=${{ matrix.architecture }}
+          if ($LASTEXITCODE -ne 0) { throw 'Smoke build failed' }
+
+      - name: Paket installieren, erneut installieren und COM-Grenze prüfen
+        shell: powershell
+        run: |
+          $package = "artifacts\Meetling-OutlookAddIn-${{ matrix.architecture }}"
+          try {
+              & "$package\Install.ps1" -OutlookBitness ${{ matrix.architecture }}
+              & "$package\Install.ps1" -OutlookBitness ${{ matrix.architecture }}
+              $ps = if ('${{ matrix.architecture }}' -eq 'x86') { "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe" } else { "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" }
+              & $ps -NoProfile -ExecutionPolicy Bypass -File "$package\Diagnose.ps1" -OutlookBitness ${{ matrix.architecture }} -TestComActivation -OutputPath "artifacts\COM-diagnosis.txt"
+              if ($LASTEXITCODE -ne 0) { throw 'Isolated COM activation failed' }
+              $exe = "tests\Meetling.OutlookAddIn.SmokeTests\bin\${{ matrix.architecture }}\Release\net48\Meetling.OutlookAddIn.SmokeTests.exe"
+              & $exe
+              if ($LASTEXITCODE -ne 0) { throw 'COM smoke test failed' }
+          } finally {
+              & "$package\Uninstall.ps1" -OutlookBitness ${{ matrix.architecture }}
           }
 
       - name: DLL-Paket hochladen
@@ -187,8 +227,9 @@ jobs:
               --target "$GITHUB_SHA" \
               --prerelease \
               --title "Meetling Outlook Add-in – aktueller Build" \
-              --notes "Automatisch geprüfter Build aus Commit $GITHUB_SHA. Für Outlook 32-Bit das x86-Paket, für Outlook 64-Bit das x64-Paket herunterladen."
+              --notes "CI-Build (keine Outlook-Abnahme) aus Commit $GITHUB_SHA. Für Outlook 32-Bit das x86-Paket, für Outlook 64-Bit das x64-Paket herunterladen."
           fi
 
           echo "### Release verfügbar" >> "$GITHUB_STEP_SUMMARY"
           echo "[Meetling Outlook Add-in herunterladen]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$release_tag)" >> "$GITHUB_STEP_SUMMARY"
+

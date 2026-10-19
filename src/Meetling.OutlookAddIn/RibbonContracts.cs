@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 namespace Meetling.OutlookAddIn.Interop;
 
 [ComImport]
+[ComVisible(true)]
 [Guid("000C0396-0000-0000-C000-000000000046")]
 [InterfaceType(ComInterfaceType.InterfaceIsDual)]
 public interface IRibbonExtensibility
@@ -13,8 +14,16 @@ public interface IRibbonExtensibility
 }
 
 [ComImport]
+[ComVisible(true)]
 [Guid("000C0395-0000-0000-C000-000000000046")]
 [InterfaceType(ComInterfaceType.InterfaceIsDual)]
 public interface IRibbonControl
 {
+    [DispId(1)]
+    string Id { [return: MarshalAs(UnmanagedType.BStr)] get; }
+    [DispId(2)]
+    object Context { [return: MarshalAs(UnmanagedType.IDispatch)] get; }
+    [DispId(3)]
+    string Tag { [return: MarshalAs(UnmanagedType.BStr)] get; }
 }
+

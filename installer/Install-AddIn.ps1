@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('x86', 'x64')]
@@ -19,3 +19,4 @@ $installerParameters = @{
     PackageDirectory = $source
 }
 & (Join-Path $PSScriptRoot 'Install-PublishedAddIn.ps1') @installerParameters
+
