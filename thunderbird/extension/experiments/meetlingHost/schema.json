@@ -1,8 +1,123 @@
-[{"namespace":"meetlingHost","functions":[
-  {"name":"openDraft","type":"function","async":true,"parameters":[]},
-  {"name":"checkTarget","type":"function","async":true,"parameters":[{"name":"target","type":"string"}]},
-  {"name":"insert","type":"function","async":true,"parameters":[{"name":"target","type":"string"},{"name":"html","type":"string"},{"name":"title","type":"string"}]},
-  {"name":"vaultGet","type":"function","async":true,"parameters":[{"name":"installation","type":"string"}]},
-  {"name":"vaultSet","type":"function","async":true,"parameters":[{"name":"installation","type":"string"},{"name":"token","type":"string"},{"name":"name","type":"string"}]},
-  {"name":"vaultDelete","type":"function","async":true,"parameters":[{"name":"installation","type":"string"}]}
-],"events":[{"name":"onCommand","type":"function","parameters":[{"name":"target","type":"string"}]}]}]
+[
+  {
+    "namespace": "meetlingHost",
+    "functions": [
+      {
+        "name": "openDraft",
+        "type": "function",
+        "async": true,
+        "parameters": [],
+        "returns": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "checkTarget",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "target",
+            "type": "string"
+          }
+        ],
+        "returns": {
+          "type": "boolean"
+        }
+      },
+      {
+        "name": "insert",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "target",
+            "type": "string"
+          },
+          {
+            "name": "html",
+            "type": "string"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          }
+        ],
+        "returns": {
+          "type": "boolean"
+        }
+      },
+      {
+        "name": "vaultGet",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "installation",
+            "type": "string"
+          }
+        ],
+        "returns": {
+          "choices": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "token": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "vaultSet",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "installation",
+            "type": "string"
+          },
+          {
+            "name": "token",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "vaultDelete",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "installation",
+            "type": "string"
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "name": "onCommand",
+        "type": "function",
+        "parameters": [
+          {
+            "name": "target",
+            "type": "string"
+          }
+        ]
+      }
+    ]
+  }
+]

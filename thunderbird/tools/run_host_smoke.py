@@ -18,12 +18,14 @@ with tempfile.TemporaryDirectory(prefix='meetling-thunderbird-') as tmp:
     profile=Path(tmp)
     extensions=profile/'extensions';extensions.mkdir()
     manifest={"manifest_version":2,"name":"Meetling CI harness","version":"1.0","browser_specific_settings":{"gecko":{"id":"meetling-ci@example.invalid","strict_min_version":"158.0"}},"background":{"scripts":["background.js"]},"experiment_apis":{"smoke":{"schema":"schema.json","parent":{"scopes":["addon_parent"],"paths":[["smoke"]],"script":"smoke.js"}}}}
+    manifest['experiment_apis']['meetlingHost']=json.loads((root/'extension/manifest.json').read_text())['experiment_apis']['meetlingHost']
     with zipfile.ZipFile(extensions/'meetling-ci@example.invalid.xpi','w') as z:
         z.writestr('manifest.json',json.dumps(manifest))
-        z.writestr('schema.json',json.dumps([{"namespace":"smoke","functions":[{"name":"run","type":"function","async":True,"parameters":[]}]}]))
-        z.writestr('background.js','browser.smoke.run();')
+        z.writestr('schema.json',json.dumps([{"namespace":"smoke","functions":[dict(name=name,type='function',**{'async':True},parameters=([dict(name='report',type='string')] if name=='finish' else [])) for name in ['setup','seed','verify','finish']]}]))
+        z.writestr('background.js',(root/'tests/host-background.js').read_bytes())
         z.writestr('icon.svg',(root/'extension/icon.svg').read_bytes())
-        z.writestr('production.js',(root/'extension/experiments/meetlingHost/implementation.js').read_bytes())
+        for name in ['schema.json','implementation.js']:
+            z.writestr('experiments/meetlingHost/'+name,(root/'extension/experiments/meetlingHost'/name).read_bytes())
         z.writestr('smoke.js',(root/'tests/host-smoke.js').read_bytes())
     prefs={"extensions.autoDisableScopes":0,"extensions.enabledScopes":15,"extensions.startupScanScopes":15,"xpinstall.signatures.required":False,"mail.shell.checkDefaultClient":False,"mail.provider.enabled":False,"mailnews.start_page.enabled":False,"mail.accountmanager.accounts":"account1","mail.accountmanager.defaultaccount":"account1","mail.account.account1.server":"server1","mail.accountmanager.localfoldersserver":"server1","mail.server.server1.type":"none","mail.server.server1.hostname":"Local Folders","mail.server.server1.name":"Local Folders","mail.server.server1.userName":"nobody","calendar.item.editInTab":True,"calendar.timezone.local":"Europe/Berlin","calendar.alarms.show":False,"datareporting.policy.dataSubmissionPolicyBypassNotification":True,"toolkit.telemetry.reportingpolicy.firstRun":False}
     (profile/'user.js').write_text('\n'.join(f'user_pref({json.dumps(k)}, {json.dumps(v)});'for k,v in prefs.items()))
