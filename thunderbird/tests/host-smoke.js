@@ -20,7 +20,7 @@ var smoke = class extends ExtensionCommon.ExtensionAPI {
         calendar.id=Services.uuid.generateUUID().toString();calendar.name="Meetling CI";
         manager.registerCalendar(calendar);
         win.getSelectedCalendar=()=>calendar;
-        const scope={ChromeUtils,Services,Cc,Ci,URL};
+        const scope={ChromeUtils,Services,Cc,Ci};
         Services.scriptloader.loadSubScript(context.extension.rootURI.resolve("production.js"),scope);
         const implementation=new scope.meetlingHost(context.extension);
         const api=implementation.getAPI(context).meetlingHost;

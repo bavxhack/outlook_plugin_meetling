@@ -61,9 +61,9 @@ var meetlingHost = class extends ExtensionCommon.ExtensionAPI {
       return [...documents].map(doc => doc.defaultView).filter(win => win && ready(win));
     };
     const installation = value => {
-      const u = new URL(value);
-      if (u.protocol !== "https:" || u.username || u.password || u.search || u.hash) throw new Error("Ungültige Installation.");
-      return u.href;
+      const u = Services.io.newURI(value).QueryInterface(Ci.nsIURL);
+      if (!u.schemeIs("https") || u.userPass || u.query || u.ref) throw new Error("Ungültige Installation.");
+      return u.spec;
     };
     const logins = value => Services.logins.findLogins(origin, null, installation(value));
     context.callOnClose({ close() {
