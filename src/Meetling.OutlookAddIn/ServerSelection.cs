@@ -23,6 +23,8 @@ internal static class ServerSelection
 // Native WinForms controls, Windows contrast colors and Segoe UI match the Office desktop idiom.
 internal sealed class ServerPickerForm : Form
 {
+    private TableLayoutPanel layout = null!;
+    private FlowLayoutPanel serverPanel = null!;
     private readonly List<Button> buttons = new List<Button>();
     private readonly ToolTip tips = new ToolTip();
     private readonly Bitmap cube = RibbonImages.RenderCube(28);
@@ -40,6 +42,7 @@ internal sealed class ServerPickerForm : Form
         StartPosition = FormStartPosition.CenterParent;
         ShowInTaskbar = false; MinimizeBox = false; MaximizeBox = false;
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Padding = new Padding(24, 20, 24, 16), BackColor = SystemColors.Window };
+        layout = root;
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -47,6 +50,7 @@ internal sealed class ServerPickerForm : Form
         root.Controls.Add(new Label { Text = "Server auswählen", UseMnemonic = false, AutoSize = true, Font = headingFont, Margin = new Padding(0, 0, 0, 6), ForeColor = SystemInformation.HighContrast ? SystemColors.WindowText : Color.FromArgb(0, 95, 184) }, 0, 0);
         root.Controls.Add(new Label { Text = "Ein Klick auf den Server erstellt dein Meetling.", AutoSize = true, Margin = new Padding(0, 0, 0, 20) }, 0, 1);
         var choices = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Margin = Padding.Empty, Padding = new Padding(0, 0, 0, 8) };
+        serverPanel = choices;
         root.Controls.Add(choices, 0, 2);
         var duplicates = new HashSet<string>(servers.GroupBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key), StringComparer.CurrentCultureIgnoreCase);
         foreach (var server in servers.OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(s => s.Id, StringComparer.Ordinal))
@@ -75,6 +79,30 @@ internal sealed class ServerPickerForm : Form
         var cancel = new Button { Text = "Abbrechen", AutoSize = true, MinimumSize = new Size(104, 32), DialogResult = DialogResult.Cancel, FlatStyle = FlatStyle.System };
         footer.Controls.Add(cancel); root.Controls.Add(footer, 0, 3); CancelButton = cancel;
         // No preselected server or default accept button. Click/keyboard activation confirms a specific ID.
+    }
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        FitServerButtons();
+    }
+    internal void FitServerButtons()
+    {
+        // Measure after WinForms has applied the host's DPI/font scaling and label wrapping.
+        // A fixed height estimate can leave only one card visible in Outlook at higher scaling.
+        serverPanel.AutoScrollPosition = Point.Empty;
+        foreach (var button in buttons)
+            button.Height = Math.Max(button.Height, button.GetPreferredSize(new Size(button.Width, 0)).Height + button.Padding.Vertical);
+        PerformLayout(); layout.PerformLayout(); serverPanel.PerformLayout();
+        int required = serverPanel.Padding.Vertical + buttons.Sum(b => b.Height + b.Margin.Vertical);
+        int chrome = Height - ClientSize.Height;
+        int maximum = Math.Max(1, Screen.FromControl(this).WorkingArea.Height - chrome - 32);
+        int desired = ClientSize.Height + required - serverPanel.ClientSize.Height;
+        ClientSize = new Size(ClientSize.Width, Math.Min(maximum, Math.Max(ClientSize.Height, desired)));
+        PerformLayout(); layout.PerformLayout(); serverPanel.PerformLayout();
+        // Growing a centered dialog must not put its footer outside the working area.
+        var area = Screen.FromControl(this).WorkingArea;
+        Top = Math.Max(area.Top, Math.Min(Top, area.Bottom - Height));
+        serverPanel.AutoScrollPosition = Point.Empty;
     }
     protected override void Dispose(bool disposing)
     {

@@ -87,13 +87,24 @@ internal static class Program
             Check(ServerSelection.Choose(many)?.Id == "20" && confirmations == 2, "Many servers selection");
             ServerSelection.Confirm = list => null;
             Check(ServerSelection.Choose(two) == null, "Cancel has no selected server");
+            foreach (float factor in new[] { 1F, 1.5F, 2F })
+            using (var scaledPicker = new ServerPickerForm(many))
+            {
+                scaledPicker.CreateControl();
+                scaledPicker.Scale(new SizeF(factor, factor));
+                scaledPicker.FitServerButtons();
+                var scaledPanel = (FlowLayoutPanel)scaledPicker.ServerButtons[0].Parent;
+                Check(scaledPicker.ServerButtons.All(b => b.Top >= 0 && b.Bottom <= scaledPanel.ClientSize.Height), "Server cards visible at scale " + factor);
+            }
             using (var picker = new ServerPickerForm(many))
             {
                 Check(picker.ServerButtons.Count == many.Length && picker.SelectedServer == null, "Button picker has no preselected server");
                 Check(picker.ServerButtons.All(b => b.Tag is Meetling.Core.Server && !b.UseMnemonic), "Server IDs separate from displayed text");
                 Check(picker.ServerButtons.Count(b => b.Text.Contains("Server-ID:")) == 2, "Duplicate names display IDs");
                 Check(picker.CancelButton != null && picker.AcceptButton == null, "Cancel available, no implicit server confirmation");
-                picker.CreateControl(); picker.PerformLayout();
+                picker.CreateControl(); picker.PerformLayout(); picker.FitServerButtons();
+                var panel = (FlowLayoutPanel)picker.ServerButtons[0].Parent;
+                Check(picker.ServerButtons.All(b => b.Top >= 0 && b.Bottom <= panel.ClientSize.Height), "All three server cards fully visible without scrolling");
                 using (var preview = new Bitmap(picker.Width, picker.Height))
                 {
                     picker.DrawToBitmap(preview, new Rectangle(0, 0, preview.Width, preview.Height));
