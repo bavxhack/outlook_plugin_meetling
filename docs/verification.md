@@ -1,102 +1,139 @@
-# Technischer Prüfbericht
+# Prüfbericht – Outlook-Plugin-API
 
-## Erneut geprüfter Ausgangsstand
+Basis: GitHub main 0ca8de3d9741af5378dde2989239e78e551b5066, am
+20.10.2026 über GitHub-Connector verifiziert. Lokaler Ausgangscheckout war älter
+und wurde vor Implementierung mit dieser Basis abgeglichen. Shell-Netzwerkproxy
+ist in der bereitgestellten Linux-Umgebung nicht erreichbar; .NET/Windows/Outlook
+stehen lokal nicht zur Verfügung. Builds und Ausführung erfolgen in Windows-CI.
 
-main: c623582f61fcb165f5cb40338642bd5de3eab27d. Im Repository keine AGENTS.md
-gefunden. COM-Identität unverändert. Bestätigte statische Befunde:
+## Automatisierte Prüfungen
 
-- GetCustomUI lieferte nur für Appointment XML; Explorer und Mail.Compose fehlten.
-- ClassInterface.None ohne explizites Callback-Defaultinterface.
-- Konferenzbutton führte synchron einen HTTP-Request aus; Startklasse besaß SettingsStore.
-- IRibbonControl war leer. IDTExtensibility2 war als reines Dispatchinterface
-  statt dual deklariert (Microsoft-Typelib-Flag 4160 = FDual | FDispatchable).
-- Installer und WiX hatten Assemblyversion 1.0.0.0 fest eingebaut; Installer
-  prüfte nicht die tatsächliche Paketarchitektur.
-- WiX wich beim Installationspfad ab und enthielt nicht die Outlook-Interop-DLL.
+Kern-Testläufer prüft URLs/Unterpfade und Pfadabwehr, GET/POST-Konvention,
+unterschiedliche Tokenheader, ausschließlich server_id im Formular, alle fünf
+fachlichen Fehler bei HTTP 200, ungültiges JSON/HTML/leere Antworten, Schemas,
+0/1/2/4 Server, gleiche Namen und getrennte IDs, große numerische IDs ohne
+Rundung, fehlerhafte/duplizierte IDs, Login-Endpointbindung, Tokenvalidierung,
+Konferenz-URLs unverändert, Logout-Schemata/Fehler, HTTP-Status und keine Retries,
+verwaltete Priorität/Sperrwirkung/kaputte Datei ohne Fallback, Session-Epochen.
 
-Dies sind Codebefunde, keine nachgewiesene Ursache eines konkreten Outlook-
-Ladefehlers. Ein entsprechender Outlooklauf lag nicht vor.
+Windows-Standardbenutzer-Smoke prüft COM-Aktivierung, erhaltene DISPIDs 1–4,
+zusätzliche DISPIDs 5–13, IDispatch-Aufrufgrenze, Logo/IPictureDisp, Ribbon im
+Explorer, Termin und Mail-Compose, Lifecycle, DPAPI-Roundtrip/Neustart,
+Installationstokenbindung und Löschen, installierbare Pakete für x86/x64,
+Neuinstallation und Deinstallation. Die Windows-Runner ersetzen kein Outlook.
 
-## COM-Verträge
+Ausführungsergebnisse: siehe verlinkten Actions-Lauf des PR. Ein Build gilt erst
+mit grünen Tests und beiden hochgeladenen Architektur-Artefakten als geliefert.
 
-Lokale, schmale Definitionen bleiben erhalten, damit keine zusätzliche, auf dem
-Buildhost installierte Office-/Visual-Studio-PIA zur Voraussetzung wird.
-Keine neuen GUIDs für Microsoft-Interfaces:
+## Nicht ausgeführte Live-Abnahme
 
-| Interface | IID | Vertrag |
-| --- | --- | --- |
-| IDTExtensibility2 | B65AD801-ABAF-11D0-BB8B-00A0C90F2744 | dual, DISPIDs 1–5, IDispatch-Objekte, ref SAFEARRAY(VARIANT) |
-| IRibbonExtensibility | 000C0396-0000-0000-C000-000000000046 | dual, DISPID 1, BSTR Ein-/Ausgabe |
-| IRibbonControl | 000C0395-0000-0000-C000-000000000046 | dual, Id=1/BSTR, Context=2/IDispatch, Tag=3/BSTR |
-| IMeetlingRibbonCallbacks | 6D6E490A-EC2B-4F53-9AF3-32690E634D19 | eigenes Dispatch-Defaultinterface, TestPlugin=1, OpenSettings=2 |
+Alle Punkte in docs/smoke-test.md benötigen einen Windows-Outlook-Testplatz mit
+realer Meetling-/SSO-Installation. SSO-Rückkehr und Moderatoridentität sind offen.
+Keine simulierte Antwort wird als produktive Integration bezeichnet. Auch
+native Word-Editor-Einfügung, Feld-/Formatierungserhalt und Outlook-Bitnessen
+müssen real geprüft werden. Keine Zugangsdaten oder Testinstanz bereitgestellt.
 
-Microsoft-Referenzen:
-[IDTExtensibility2](https://learn.microsoft.com/en-us/dotnet/api/extensibility.idtextensibility2?view=visualstudiosdk-2022),
-[IRibbonExtensibility](https://learn.microsoft.com/en-us/dotnet/api/microsoft.office.core.iribbonextensibility?view=office-pia),
-[IRibbonControl](https://learn.microsoft.com/en-us/dotnet/api/microsoft.office.core.iribboncontrol?view=office-pia),
-[Callback-Beispiele](https://learn.microsoft.com/en-us/office/vba/api/office.iribboncontrol).
-Methodenreihenfolge und explizites Marshalling sind Bestandteil der lokalen Verträge.
-Die Callbackparameter werden als IDispatch/object transportiert; die Basis
-greift nicht auf IRibbonControl oder dessen Fensterkontext zu. Dadurch benötigt
-die Callback-Typinformation keine registrierte Office-Typbibliothek, auch im
-Office-freien Windows-CI-Test.
-ClassInterface.None und ComDefaultInterface werden gemeinsam verwendet.
-Die Assembly ist standardmäßig COM-unsichtbar; nur explizite Verträge und Klasse
-werden exponiert. Keine AutoDual-Klassen.
+## Rückmeldung aus Live-Versuch (20.10.2026)
 
-## Automatisierte und manuelle Grenzen
+Nutzer meldet: /outlooklogin liefert nach OTP im normalen Edge die Token-JSON-
+Antwort; im Add-in bleibt die OTP-Seite stehen. Die konkrete Ursache ist ohne
+Browserablauf/Diagnose noch unbestätigt. Im Client wurde eine pauschale Sperre
+zusätzlicher SSO-Fenster gefunden. Ergänzt wurden SSO-Popups im gleichen
+WebView2-Kontext, sichere Navigationsdiagnose und eine explizite Rückkehr zum
+konfigurierten Endpunkt. Diese Änderungen sind kein Nachweis einer behobenen
+Live-OTP-Störung. Erneuter Versuch mit neuem Paket erforderlich.
 
-Die Bearbeitungsumgebung ist Linux ohne .NET-/MSBuild-/PowerShell-Laufzeit,
-Windows oder Outlook. Lokal möglich: statische Quellprüfung, XML-Parsing,
-Workflow-Struktur, Diff-/Whitespaceprüfung. Nicht lokal ausgeführt:
-Release-Builds, Core-Tests, PowerShell-Installer, Registry-/COM-Aktivierung und
-Outlook-Abnahme. Der ergänzte Windows-CI-Test ist ausführbarer Prüfcode,
-sein bloßes Vorhandensein gilt nicht als bestandenes Ergebnis.
+## Weiteres Live-Log und Korrektur (Version 1.3.1)
 
-Der Windows-Workflow führt x86/x64-Releasebuilds und paketierte Installationen
-einschließlich Wiederholung aus; dann echte COM-Aktivierung, Default-IDispatch-
-Namensauflösung und Invoke beider Callbacks mit ersetzter interner Dialogausgabe.
-So bleiben CI-Läufe ohne modale Dialoge. Ribbon und Lifecycle werden zusätzlich
-geprüft. Kein authentifizierter Nutzer, kein Outlook-Kalender und keine Meetling-
-API erforderlich. Das Harness ersetzt keinen Outlook-UI-/Hosttest und ist
-nicht Bestandteil der ausgelieferten Installationspakete.
+Nutzerlog zeigt nach OTP: installation redirected → blocked redirected →
+endpoint-response HTTP=200 → failed. Daraus ist weder ein konkretes Zielschema
+noch der Exceptiontyp ablesbar. Antwortstream wurde bisher ungeprüft an
+StreamReader übergeben; unerwartete Fehler beendeten die Browsersitzung ohne
+technische Fehlerdiagnose. Fehlende Streams werden nun explizit behandelt,
+Laufzeitfehler erhalten die Sitzung, UI-Abschluss wird explizit dispatcht,
+Fehlerphase/Exceptiontyp/HRESULT und feste Sperrgründe werden protokolliert.
 
-Windows-/Outlook-Versionen und Bitness müssen in docs/smoke-test.md nach
-tatsächlicher Ausführung ergänzt werden. WiX bleibt ausdrücklich nicht abgenommen.
+Zusätzlich wird ausschließlich eine parameterlose HTTP-Rückleitung auf exakt
+den konfigurierten Login-Host/-Pfad durch einen einmaligen Aufruf des bekannten
+HTTPS-Endpunkts ersetzt; HTTP wird dabei niemals angefragt. Die tatsächliche
+Sperrursache im Nutzerlog bleibt bis zum neuen Versuch offen. Regressionstests
+prüfen fehlende/valide/ungültige/abgebrochene Antwortstreams und die engen
+Grenzen der HTTPS-Rückkehr. Keine erfolgreiche Live-Anmeldung behauptet.
 
-## Windows-CI-Kontext
+## Anmeldung bestätigt, Server-Transportfehler (Version 1.3.2)
 
-Der gehostete Runner läuft mit Administrator-Token. Die ersten isolierten
-Aktivierungen unter diesem Konto meldeten HRESULT 0x80070002 trotz vorhandener
-HKCU-Registrierung und lesbarem Paket. Das ist kein erfolgreicher COM-Nachweis.
-Der endgültige Testweg führt daher Installation, Wiederinstallation, Diagnose
-und Harness unter einem temporären lokalen Standardbenutzer mit geladenem
-Benutzerprofil aus. Konto und Testverzeichnis werden danach entfernt. Diese
-CI-Hilfsskripte werden nicht an Anwender ausgeliefert. Die Produktinstallation
-bleibt ausschließlich unter HKCU; Outlook soll ohne Administratorrechte starten.
+Der Nutzer bestätigt eine funktionierende Anmeldung. Das Log dokumentiert die
+blockierte HTTP-Rückleitung, den Aufruf des konfigurierten HTTPS-Endpunkts und
+`token-response-validated`. Anschließend scheitert der Serverabruf mit
+HttpRequestException 0x80131500. Dieser äußere Fehler allein belegt weder eine
+leere Serverliste noch einen bestimmten TLS-/Proxyfehler.
 
-[Microsoft: COM und Benutzerregistrierung bei erhöhten Rechten](https://learn.microsoft.com/en-us/windows/win32/com/the-com-elevation-moniker).
+Der Nutzer meldet anschließend einen geänderten API-Vertrag: vor jedem
+Authorization-Token ist nun Bearer erforderlich. Serverliste und Logout senden
+daher `Authorization: Bearer <token>`; der separate token-Header der Erstellung
+behält den dokumentierten Wert. Tests prüfen beide Authorization-Endpunkte und
+den getrennten Create-Header. Gespeicherte Tokens werden unverändert weitergenutzt.
 
-## Kalender-Ribbon und Mock-Entwurf (1.2.0.0)
+Globale Netzwerkvorgaben und Zertifikatsprüfung bleiben erhalten. Zusätzlich
+werden innere TLS-/DNS-/Proxy-/Timeoutursachen sekretfrei protokolliert. Neue
+ApiRequest-Einträge unterscheiden Transportfehler von HTTP-Status und einer
+validen leeren Liste. Die konkrete Ursache des äußeren HttpRequestException ist
+im Nutzerlog nicht belegt. Echte Konferenzerstellung und Moderatorzuordnung sind
+weiterhin unbestätigt.
 
-Nutzer bestätigt Installation und bedienbare Basisbuttons. Der neue Kalenderbutton
-wird nur im Explorer-XML in TabCalendar / nach GroupCalendarNew eingefügt; die
-bisherigen Diagnose-Tabs bleiben vorhanden. Das eingebettete SVG enthält exakt
-das erste grüne Rechteck und die zwei zugehörigen weißen Kreise aus dem vom
-Nutzer hochgeladenen Meetling_Logo_2025_Color.svg. Der native Bitmap-Renderer
-verwendet diese Vektorgeometrie und benötigt keine externe Bilddatei.
+## TLS-Verbindungsfehler eingegrenzt (Version 1.3.3)
 
-Explizite Dispatch-Erweiterung: GetMeetlingImage = 3 (Rückgabe IDispatch/IPictureDisp),
-CreateMeeting = 4. Die bisherigen DISPIDs 1 und 2 bleiben unverändert.
-Der Windows-Smoke-Test prüft das Image-Invoke über die native COM-Grenze,
-QueryInterface auf stdole.IPictureDisp, transparente Ecken und Originalfarben.
-CreateMeeting wird ebenfalls über IDispatch aufgerufen; nur der native
-Outlook-Editor wird intern ersetzt. Der erzeugte Mock-Entwurf enthält seinen
-.invalid-Link im Body und ist klar als Test gekennzeichnet.
+Das Nutzerlog von Version 1.3.2 meldet beim Serverabruf SecureChannelFailure
+vor einer HTTP-Antwort. Der TLS-Verbindungsaufbau scheitert; ein bestimmter
+Protokoll-/Cipher-/Zertifikatsgrund ist daraus noch nicht bewiesen. Für den
+API-Handler werden nun TLS 1.2/1.3 explizit angeboten. Der Outlook-Prozess
+behält seine globalen Einstellungen; Zertifikate werden normal geprüft.
 
-Der Produktcode öffnet eine neue AppointmentItem-Besprechung mit Display(false).
-Kein Zugriff auf vorhandene Termine, keine Netzwerkaufrufe, kein automatisches
-Save/Send. Alle Outlook-Zugriffe finden auf dem Ribbon-UI-Thread statt.
-Echte Outlook-UI-Abnahme siehe Ergänzung in smoke-test.md; noch nicht ausgeführt.
+Windows-CI simuliert globale TLS-1.0-Hostvorgaben und prüft moderne Protokolle
+am tatsächlichen .NET-Framework-Handler, ausgeschlossene Altprotokolle, normale
+Zertifikatsprüfung und unveränderte globale Einstellungen. Dies ist ein
+Konfigurations-/Runtime-Regressionstest, kein echter TLS-Handshake gegen die
+Nutzerinstallation. Beide Architekturpakete sind als 1.3.3 gekennzeichnet.
+Die erfolgreiche Serververbindung nach dieser Änderung bleibt live zu prüfen.
 
-[Microsoft: Outlook-Ribbon-Anpassung](https://learn.microsoft.com/en-us/office/vba/outlook/how-to/office-fluent-ui-extensibility/overview-of-customizing-the-ribbon).
+## Neue getrennte Controller-Routen (Version 1.3.4)
+
+Aktuelle Wiki-Rohfassung vom 20.10.2026 geprüft (die normale Wiki-Ansicht lieferte
+zunächst einen veralteten Cache). Login bleibt unter room/outlook/plugin;
+Server, Erstellung und Logout verwenden api/v1/outlook/plugin. Alle drei
+API-Aktionen verlangen Authorization: Bearer, auch die Erstellung. GET/POST sind
+nun verbindliche Routenattribute. Antwortschemata und Moderatorgrenze bleiben
+wie beschrieben. Quelle:
+https://raw.githubusercontent.com/wiki/H2-invent/jitsi-admin/Outlook-Plugin-API-Doku.md
+
+Getrennte LoginBasePath-/ApiBasePath-Konfiguration, exakte Request-URLs mit
+Installationsunterpfad, einheitliche Bearer-Header, fehlender alter token-Header,
+Login-Endpointbindung sowie Migration alter Standardkonfigurationen werden
+getestet. Benutzer- und Verwaltungsdateien bleiben beim Laden bytegleich;
+benutzerdefinierte Präfixe bleiben erhalten, beschädigte Vorgaben bleiben
+blockierend. TLS-Korrektur aus 1.3.3 wird weiterverwendet. Ein erfolgreicher
+Serverabruf/Erstellung mit den neuen Routen ist noch live zu bestätigen.
+
+## Server-Schaltflächen und Moderator-Bearbeitungslink (1.3.5)
+
+Der Nutzer bestätigt den bisherigen End-to-End-Ablauf als funktionierend.
+Neue Anforderungen: native Server-Schaltflächen im Office-Desktopstil und ein
+zusätzlicher Moderator-Bearbeitungslink aus dem neuen Create-Antwortfeld id.
+Implementiert sind scrollbare Schaltflächen, korrekte ID-Zuordnung bei gleichen
+Namen/Sortierung, Fokus-/Hover-/Kontrastzustände sowie der Editor-Link unterhalb
+der Teilnahme-URL. Die aus der Antwort gelesene ID wird nicht aus anderen Feldern
+abgeleitet. Große Integer-IDs bleiben exakt; Ziffernstrings sind getestete
+Adaptertoleranz. Fehlende/ungültige IDs verlieren keinen bereits erstellten Raum
+und lösen keine Wiederholung aus. Text und beide Links sind manuell übernehmbar.
+
+Core-Tests prüfen ID/URL-Zuordnung, Unterpfad, Linkreihenfolge, Moderatorhinweis,
+große Zahlen, Ziffernstrings und fehlerhafte/fehlende IDs. Windows-Smoke prüft die
+Schaltflächen, Duplikatbeschriftungen, fehlende Vorwahl und tatsächliches
+Click-Ereignis mit korrekter ID. Ein gerendertes server-picker-<Bitness>.png wird
+mit den Actions-Artefakten geliefert. Native Word-Hyperlinks und DPI-/Outlook-
+Darstellung bleiben auf dem Nutzerrechner manuell abzunehmen. Keine automatische
+Speicherung oder Sendung und keine Änderung des funktionierenden API-Vertrags.
+
+## 1.3.6 – Fensterhöhe der Serverauswahl
+
+Die Höhe wird nach der DPI-/Schriftskalierung aus den tatsächlichen Buttonhöhen, Abständen und umgebrochenen Beschriftungen berechnet und an der Bildschirmarbeitsfläche begrenzt. Der Windows-Smoke prüft drei vollständig sichtbare Server-Buttons oder die erreichte Bildschirmhöhenbegrenzung bei 100, 150 und 200 Prozent Layoutskalierung. Reales Outlook-DPI-Verhalten bleibt manuell zu prüfen.

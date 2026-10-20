@@ -16,8 +16,7 @@ internal static class DiagnosticLog
     // Do not include exception messages: future exceptions may contain secrets or item content.
     public static void Write(string message, Exception exception)
     {
-        try { WriteLine(message + " Exception=" + exception.GetType().FullName +
-            " HRESULT=0x" + exception.HResult.ToString("X8")); }
+        try { WriteLine(message + " " + Meetling.Core.TransportFailure.SafeDetails(exception)); }
         catch (Exception) { /* Diagnostics must never break Office. */ }
     }
 

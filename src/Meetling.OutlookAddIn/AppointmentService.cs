@@ -1,143 +1,98 @@
-using Meetling.Core;
-using Microsoft.CSharp.RuntimeBinder;
-using Outlook = Microsoft.Office.Interop.Outlook;
 using System;
 using System.Runtime.InteropServices;
-
+using Meetling.Core;
+using Outlook = Microsoft.Office.Interop.Outlook;
 namespace Meetling.OutlookAddIn;
-
-internal sealed class AppointmentSnapshot
+// Captured on UI thread before any await; never looks up ActiveInspector after networking.
+internal sealed class AppointmentTarget : IDisposable
 {
-    public AppointmentSnapshot(string subject, DateTime start, DateTime end, string organizerEmail)
-    { Subject = subject; Start = start; End = end; OrganizerEmail = organizerEmail; }
-    public string Subject { get; }
-    public DateTime Start { get; }
-    public DateTime End { get; }
-    public string OrganizerEmail { get; }
-}
-
-internal sealed class AppointmentService
-{
-    private readonly Outlook.Application application;
-    public AppointmentService(Outlook.Application application) => this.application = application;
-
-    public AppointmentSnapshot ReadCurrent()
+    private object? item;
+    private Outlook.Inspector? inspector;
+    private readonly bool newItem;
+    private AppointmentTarget(object item, Outlook.Inspector inspector, bool newItem) { this.item = item; this.inspector = inspector; this.newItem = newItem; }
+    internal static AppointmentTarget Capture(object? application, object? control)
     {
-        Outlook.Inspector? inspector = null; Outlook.AppointmentItem? item = null;
+        if (!(application is Outlook.Application outlook)) throw new InvalidOperationException("Outlook ist nicht verbunden.");
+        object? context = null;
+        try { if (control != null) context = ((dynamic)control).Context; } catch (Exception) { }
+        var inspector = context as Outlook.Inspector;
+        // Explorer actions always create a new draft, even if another inspector is open.
+        if (inspector == null && !(context is Outlook.Explorer)) inspector = outlook.ActiveInspector();
+        if (inspector != null)
+        {
+            object item = inspector.CurrentItem;
+            if (!(item is Outlook.AppointmentItem) && !(item is Outlook.MailItem mail && !mail.Sent)) throw new InvalidOperationException("Bitte einen bearbeitbaren Termin oder E-Mail-Entwurf öffnen.");
+            var target = new AppointmentTarget(item, inspector, false);
+            try { target.EnsureEditable(); target.EnsureNoConference(); return target; } catch { target.Dispose(); throw; }
+        }
+        var appointment = (Outlook.AppointmentItem)outlook.CreateItem(Outlook.OlItemType.olAppointmentItem);
+        appointment.MeetingStatus = Outlook.OlMeetingStatus.olMeeting;
+        appointment.Display(false);
+        return new AppointmentTarget(appointment, appointment.GetInspector, true);
+    }
+    private void EnsureEditable()
+    {
+        if (item is Outlook.AppointmentItem appt && appt.MeetingStatus == Outlook.OlMeetingStatus.olMeetingReceived)
+            throw new InvalidOperationException("Eine empfangene Besprechung kann nicht ergänzt werden.");
+        dynamic editor = inspector!.WordEditor;
+        try { if ((int)editor.ProtectionType != -1 || (bool)editor.ReadOnly) throw new InvalidOperationException("Der Editor ist schreibgeschützt."); }
+        finally { Release(editor); }
+    }
+    private void EnsureNoConference()
+    {
+        dynamic properties = ((dynamic)item!).UserProperties;
+        object? link = null; object? legacyUid = null;
+        try { legacyUid = properties.Find(AppointmentRules.UidProperty, true); if (legacyUid != null && !string.IsNullOrWhiteSpace((string)((dynamic)legacyUid).Value)) throw new InvalidOperationException("Dieses Element enthält bereits eine Meetling-Konferenz."); link = properties.Find(AppointmentRules.ParticipantLinkProperty, true); if (link != null && !string.IsNullOrWhiteSpace((string)((dynamic)link).Value)) throw new InvalidOperationException("Dieses Element enthält bereits eine Meetling-Konferenz."); }
+        finally { Release(legacyUid); Release(link); Release(properties); }
+    }
+    internal void MarkPending()
+    {
+        EnsureNoConference();
+        dynamic properties = ((dynamic)item!).UserProperties;
+        object? property = null;
         try
         {
-            inspector = application.ActiveInspector();
-            if (inspector == null || !(inspector.CurrentItem is Outlook.AppointmentItem appointment))
-                throw new InvalidOperationException("Der geöffnete Outlook-Eintrag ist kein Termin.");
-            item = appointment;
-            if (HasConference(item)) throw new InvalidOperationException("Dieser Termin enthält bereits eine Meetling-Konferenz.");
-            return new AppointmentSnapshot(item.Subject ?? "Outlook-Termin", item.Start, item.End, ResolveSenderAddress(item));
+            property = properties.Find("MeetlingCreationState", true);
+            if (property != null && !string.IsNullOrEmpty((string)((dynamic)property).Value)) throw new InvalidOperationException("Für dieses Element wurde bereits eine Erstellung begonnen. Bei unklarem Ausgang bitte die Installation prüfen; es erfolgt keine automatische Wiederholung.");
+            property = property ?? properties.Add("MeetlingCreationState", Outlook.OlUserPropertyType.olText, false);
+            ((dynamic)property).Value = "pending";
         }
-        finally { Release(item); Release(inspector); }
+        finally { Release(property); Release(properties); }
     }
-
-    public void ApplyConference(string uid, Uri participantUri)
+    internal void Apply(ConferenceResult conference)
     {
-        Outlook.Inspector? inspector = null; Outlook.AppointmentItem? item = null; Outlook.UserProperties? properties = null;
+        EnsureEditable(); EnsureNoConference();
+        dynamic editor = inspector!.WordEditor; object? range = null; object? content = null;
         try
         {
-            inspector = application.ActiveInspector();
-            if (inspector == null || !(inspector.CurrentItem is Outlook.AppointmentItem appointment)) throw new InvalidOperationException("Der geöffnete Outlook-Eintrag ist kein Termin.");
-            item = appointment;
-            if (HasConference(item)) throw new InvalidOperationException("Dieser Termin enthält bereits eine Meetling-Konferenz.");
-            InsertConferenceLink(inspector, participantUri);
-            properties = item.UserProperties;
-            SetProperty(properties, AppointmentRules.UidProperty, uid);
-            SetProperty(properties, AppointmentRules.ParticipantLinkProperty, participantUri.AbsoluteUri);
-            item.Save();
+            content = editor.Content;
+            int end = (int)((dynamic)content).End - 1;
+            range = editor.Range(end, end);
+            string block = "\r\r" + conference.BodyText;
+            ((dynamic)range).InsertAfter(block);
+            // Insert fields from the end: Word hyperlink fields can shift later range positions.
+            if (conference.ModeratorEditUrl != null)
+                AddHyperlink(editor, end + block.LastIndexOf(conference.ModeratorEditUrl, StringComparison.Ordinal), conference.ModeratorEditUrl);
+            AddHyperlink(editor, end + block.IndexOf(conference.Url, StringComparison.Ordinal), conference.Url);
+            dynamic properties = ((dynamic)item!).UserProperties; object? link = null;
+            try { link = properties.Find(AppointmentRules.ParticipantLinkProperty, true) ?? properties.Add(AppointmentRules.ParticipantLinkProperty, Outlook.OlUserPropertyType.olText, false); ((dynamic)link).Value = conference.Url; }
+            finally { Release(link); Release(properties); }
+            if (newItem) ((Outlook.AppointmentItem)item!).Subject = conference.Title;
         }
-        finally { Release(properties); Release(item); Release(inspector); }
+        finally { Release(range); Release(content); Release(editor); }
+        // No Save or Send. Native fields and formatting remain owned by Outlook/user.
     }
-
-    private static bool HasConference(Outlook.AppointmentItem item)
+    private static void AddHyperlink(dynamic editor, int start, string url)
     {
-        Outlook.UserProperties? properties = null; Outlook.UserProperty? uid = null; Outlook.UserProperty? link = null;
+        object? anchor = null; object? links = null; object? link = null;
         try
         {
-            properties = item.UserProperties;
-            uid = properties.Find(AppointmentRules.UidProperty, true); link = properties.Find(AppointmentRules.ParticipantLinkProperty, true);
-            return AppointmentRules.HasExistingConference(uid?.Value?.ToString(), link?.Value?.ToString());
+            anchor = editor.Range(start, start + url.Length);
+            links = editor.Hyperlinks;
+            link = ((dynamic)links).Add(anchor, url);
         }
-        finally { Release(link); Release(uid); Release(properties); }
+        finally { Release(link); Release(links); Release(anchor); }
     }
-
-    private string ResolveSenderAddress(Outlook.AppointmentItem item)
-    {
-        Outlook.Account? account = null; Outlook.NameSpace? session = null; Outlook.Recipient? currentUser = null; Outlook.AddressEntry? entry = null; Outlook.ExchangeUser? exchangeUser = null;
-        try
-        {
-            account = item.SendUsingAccount;
-            if (account?.SmtpAddress is { } smtpAddress && SettingsValidator.IsValidEmail(smtpAddress))
-            {
-                return smtpAddress;
-            }
-
-            session = application.Session; currentUser = session.CurrentUser; entry = currentUser.AddressEntry;
-            if (entry != null && entry.Type == "EX")
-            {
-                exchangeUser = entry.GetExchangeUser();
-                if (exchangeUser?.PrimarySmtpAddress is { } primarySmtpAddress && SettingsValidator.IsValidEmail(primarySmtpAddress))
-                {
-                    return primarySmtpAddress;
-                }
-            }
-
-            return entry?.Address ?? string.Empty;
-        }
-        finally { Release(exchangeUser); Release(entry); Release(currentUser); Release(session); Release(account); }
-    }
-
-    private static void SetProperty(Outlook.UserProperties properties, string name, string value)
-    {
-        Outlook.UserProperty? property = null;
-        try { property = properties.Find(name, true) ?? properties.Add(name, Outlook.OlUserPropertyType.olText, false, Type.Missing); property.Value = value; }
-        finally { Release(property); }
-    }
-
-    private static void InsertConferenceLink(Outlook.Inspector inspector, Uri participantUri)
-    {
-        object? editor = null;
-        object? insertionRange = null;
-        object? linkRange = null;
-        object? hyperlinks = null;
-        try
-        {
-            editor = inspector.WordEditor;
-            dynamic document = editor;
-            const string label = "Meetling-Konferenz: ";
-            var link = participantUri.AbsoluteUri;
-            var insertedText = $"{label}{link}\r\n\r\n";
-
-            insertionRange = document.Range(0, 0);
-            ((dynamic)insertionRange).Text = insertedText;
-
-            linkRange = document.Range(label.Length, label.Length + link.Length);
-            hyperlinks = document.Hyperlinks;
-            ((dynamic)hyperlinks).Add(linkRange, link, Type.Missing, Type.Missing, link, Type.Missing);
-        }
-        catch (Exception ex) when (ex is COMException || ex is RuntimeBinderException)
-        {
-            throw new InvalidOperationException("Der Teilnehmerlink konnte nicht in den Termin eingefügt werden.", ex);
-        }
-        finally
-        {
-            Release(hyperlinks);
-            Release(linkRange);
-            Release(insertionRange);
-            Release(editor);
-        }
-    }
-
-    private static void Release(object? value)
-    {
-        if (value != null && Marshal.IsComObject(value))
-        {
-            Marshal.ReleaseComObject(value);
-        }
-    }
+    public void Dispose() { Release(inspector); Release(item); inspector = null; item = null; }
+    private static void Release(object? value) { if (value != null && Marshal.IsComObject(value)) Marshal.ReleaseComObject(value); }
 }

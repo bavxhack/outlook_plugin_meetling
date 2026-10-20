@@ -1,0 +1,12 @@
+{
+  "baseUrl": "https://meetling.example.invalid/",
+  "apiBasePath": "api/v1/outlook/plugin/",
+  "loginBasePath": "room/outlook/plugin/",
+  "endpoints": {
+    "login": "outlooklogin",
+    "servers": "server",
+    "createConference": "createConference",
+    "logout": "logout"
+  },
+  "timeoutSeconds": 30
+}

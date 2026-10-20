@@ -1,39 +1,51 @@
-using Meetling.Core;
 using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Xml.Serialization;
-
+using Meetling.Core;
+using Newtonsoft.Json;
 namespace Meetling.OutlookAddIn;
-
 internal sealed class SettingsStore
 {
-    private readonly string directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Meetling", "OutlookAddIn");
-    private string SettingsPath => Path.Combine(directory, "settings.xml");
-    private string SecretPath => Path.Combine(directory, "api-key.bin");
-
-    public MeetlingSettings Load()
+    internal static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Meetling", "OutlookAddIn");
+    private readonly ConfigurationStore store = new ConfigurationStore(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Meetling", "OutlookAddIn", "config.json"), Path.Combine(Root, "config.json"));
+    internal ConfigurationSnapshot Load() => store.Load();
+    internal void Save(MeetlingSettings settings) => store.SaveUser(settings);
+}
+internal sealed class TokenStore
+{
+    private string PathFor(string installation)
     {
-        var settings = new MeetlingSettings();
+        using (var hash = SHA256.Create()) return Path.Combine(SettingsStore.Root, "plugin-token-" + BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(SettingsValidator.NormalizeBaseUrl(installation)))).Replace("-", "") + ".bin");
+    }
+    private static byte[] Entropy(string installation) => Encoding.UTF8.GetBytes("Meetling.PluginToken.v1|" + SettingsValidator.NormalizeBaseUrl(installation));
+    internal LoginResult? Load(string installation)
+    {
+        var path = PathFor(installation);
+        if (!File.Exists(path)) return null;
+        var bytes = ProtectedData.Unprotect(File.ReadAllBytes(path), Entropy(installation), DataProtectionScope.CurrentUser);
         try
         {
-            if (File.Exists(SettingsPath))
-                using (var stream = File.OpenRead(SettingsPath))
-                    settings = (MeetlingSettings)new XmlSerializer(typeof(MeetlingSettings)).Deserialize(stream);
-            if (File.Exists(SecretPath))
-                settings.ApiKey = Encoding.UTF8.GetString(ProtectedData.Unprotect(File.ReadAllBytes(SecretPath), null, DataProtectionScope.CurrentUser));
+            var record = JsonConvert.DeserializeObject<TokenRecord>(Encoding.UTF8.GetString(bytes));
+            if (record == null || record.Installation != SettingsValidator.NormalizeBaseUrl(installation)) throw new CryptographicException();
+            SettingsValidator.ValidateToken(record.Token);
+            if (string.IsNullOrWhiteSpace(record.Name)) throw new CryptographicException();
+            return new LoginResult(record.Token, record.Name);
         }
-        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is CryptographicException || ex is InvalidOperationException)
-        { DiagnosticLog.Write("Einstellungen konnten nicht gelesen werden.", ex); }
-        return settings;
+        finally { Array.Clear(bytes, 0, bytes.Length); }
     }
-
-    public void Save(MeetlingSettings settings)
+    internal void Save(string installation, LoginResult login)
     {
-        Directory.CreateDirectory(directory);
-        var publicSettings = new MeetlingSettings { BaseUrl = settings.BaseUrl, Server = settings.Server, OrganizerEmail = settings.OrganizerEmail, KeycloakId = settings.KeycloakId };
-        using (var stream = File.Create(SettingsPath)) new XmlSerializer(typeof(MeetlingSettings)).Serialize(stream, publicSettings);
-        File.WriteAllBytes(SecretPath, ProtectedData.Protect(Encoding.UTF8.GetBytes(settings.ApiKey), null, DataProtectionScope.CurrentUser));
+        SettingsValidator.ValidateToken(login.Token);
+        var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new TokenRecord { Installation = SettingsValidator.NormalizeBaseUrl(installation), Token = login.Token, Name = login.Name }));
+        try { AtomicFile.Write(PathFor(installation), ProtectedData.Protect(bytes, Entropy(installation), DataProtectionScope.CurrentUser)); }
+        finally { Array.Clear(bytes, 0, bytes.Length); }
+    }
+    internal void Delete(string installation) => File.Delete(PathFor(installation));
+    private sealed class TokenRecord
+    {
+        public string Installation { get; set; } = "";
+        public string Token { get; set; } = "";
+        public string Name { get; set; } = "";
     }
 }

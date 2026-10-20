@@ -14,6 +14,7 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Security" />
+    <PackageReference Include="Microsoft.Web.WebView2" GeneratePathProperty="true" Version="1.0.2903.40" />
     <PackageReference Include="Microsoft.Office.Interop.Outlook" Version="15.0.4797.1004">
       <EmbedInteropTypes>false</EmbedInteropTypes>
       <Private>true</Private>
@@ -22,5 +23,8 @@
   <ItemGroup>
     <EmbeddedResource Include="Resources\MeetlingCube.svg" LogicalName="Meetling.OutlookAddIn.Resources.MeetlingCube.svg" />
   </ItemGroup>
+  <Target Name="CopyWebViewLoader" AfterTargets="Build" Condition="'$(Platform)' == 'x86' Or '$(Platform)' == 'x64'">
+    <Copy SourceFiles="$(PkgMicrosoft_Web_WebView2)\runtimes\win-$(Platform)\native\WebView2Loader.dll" DestinationFolder="$(TargetDir)" />
+  </Target>
 </Project>
 

@@ -27,3 +27,9 @@ public interface IRibbonControl
     string Tag { [return: MarshalAs(UnmanagedType.BStr)] get; }
 }
 
+
+[ComImport, Guid("000C03A7-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
+public interface IRibbonUI
+{
+    [DispId(1)] void Invalidate();
+}

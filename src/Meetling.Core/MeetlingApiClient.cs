@@ -2,108 +2,130 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Runtime.Serialization.Json;
-using System.Text;
+using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
-
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 namespace Meetling.Core;
-
 public sealed class MeetlingApiClient
 {
-    private readonly HttpClient httpClient;
-
-    public MeetlingApiClient(HttpClient httpClient) => this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-
-    public async Task<ConferenceResult> CreateConferenceAsync(MeetlingSettings settings, ConferenceRequest request, CancellationToken cancellationToken)
+    private readonly HttpClient http;
+    private readonly Action<string>? diagnostic;
+    public MeetlingApiClient(HttpClient http, Action<string>? diagnostic = null) { this.http = http; this.diagnostic = diagnostic; }
+    public static HttpClientHandler CreateTransportHandler() => new HttpClientHandler
     {
-        var baseUrl = SettingsValidator.NormalizeBaseUrl(settings.BaseUrl);
-        using (var createMessage = BuildCreateRequest(baseUrl, settings.ApiKey, request))
-        using (var createResponse = await SendAsync(createMessage, cancellationToken).ConfigureAwait(false))
+        AllowAutoRedirect = false, UseCookies = false,
+        // COM-hosted .NET can inherit pre-4.7 TLS defaults from Outlook.
+        // Scope modern protocols to this client, leaving Outlook's globals alone.
+        // TLS 1.3 = 12288 is the documented value absent from netstandard2.0's enum.
+        SslProtocols = SslProtocols.Tls12 | (SslProtocols)12288
+    };
+    public static HttpClient CreateHttpClient(MeetlingSettings settings) => new HttpClient(CreateTransportHandler()) { Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds) };
+    private void Trace(string message) { try { diagnostic?.Invoke(message); } catch (Exception) { /* Logging must not affect HTTP. */ } }
+    public static HttpRequestMessage BuildRequest(MeetlingSettings settings, string action, string token, string? serverId = null)
+    {
+        settings.Validate(); SettingsValidator.ValidateToken(token);
+        bool create = action == "create";
+        string endpoint = create ? settings.Endpoints.CreateConference : action == "logout" ? settings.Endpoints.Logout : action == "servers" ? settings.Endpoints.Servers : throw new ArgumentException("Unbekannte Aktion.");
+        var request = new HttpRequestMessage(create ? HttpMethod.Post : HttpMethod.Get, settings.Endpoint(endpoint));
+        request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + token);
+        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        if (create)
         {
-            var createBody = await createResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-            EnsureSuccess(createResponse, createBody);
-            var uid = ReadRequiredString(createBody, "uid", "Die Meetling-Antwort enthält keine UID.");
-
-            using (var infoMessage = BuildInfoRequest(baseUrl, settings.ApiKey, uid))
-            using (var infoResponse = await SendAsync(infoMessage, cancellationToken).ConfigureAwait(false))
+            if (string.IsNullOrWhiteSpace(serverId)) { request.Dispose(); throw new ArgumentException("Server-ID fehlt."); }
+            request.Content = new FormUrlEncodedContent(new[] { new KeyValuePair<string,string>("server_id", serverId!) });
+        }
+        return request;
+    }
+    private async Task<JToken> Send(MeetlingSettings settings, string action, string token, string? id, CancellationToken ct)
+    {
+        using (var request = BuildRequest(settings, action, token, id))
+        {
+            Trace("ApiRequest " + action + " start TLS-offered=1.2/1.3 redirects=off cookies=off");
+            try
             {
-                var infoBody = await infoResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-                EnsureSuccess(infoResponse, infoBody);
-                var link = ReadRequiredString(infoBody, "room_url", "Die Meetling-Antwort enthält keinen Teilnehmerlink.");
-                if (!Uri.TryCreate(link, UriKind.Absolute, out var participantUri) ||
-                    (participantUri.Scheme != Uri.UriSchemeHttps && participantUri.Scheme != Uri.UriSchemeHttp))
-                    throw new MeetlingApiException("Meetling hat keinen gültigen Teilnehmerlink geliefert.");
-                return new ConferenceResult(uid, participantUri);
+                using (var response = await http.SendAsync(request, ct).ConfigureAwait(false))
+                {
+                    Trace("ApiRequest " + action + " HTTP=" + (int)response.StatusCode);
+                    if (!response.IsSuccessStatusCode) throw new MeetlingApiException("Meetling HTTP-Fehler " + (int)response.StatusCode + ". Weiterleitungen werden nicht verfolgt.", "HTTP " + (int)response.StatusCode);
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return Parse(body);
+                }
+            }
+            catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException)
+            {
+                Trace("ApiRequest " + action + " failed " + TransportFailure.SafeDetails(ex));
+                throw;
             }
         }
     }
-
-    public static HttpRequestMessage BuildCreateRequest(string baseUrl, string apiKey, ConferenceRequest request)
+    public static JToken Parse(string body)
     {
-        var fields = new List<KeyValuePair<string, string>>
+        if (string.IsNullOrWhiteSpace(body)) throw new MeetlingApiException("Meetling hat eine leere Antwort geliefert.");
+        if (body.TrimStart().StartsWith("<", StringComparison.Ordinal)) throw new MeetlingApiException("Meetling liefert HTML statt API-JSON. Bitte Anmeldung/Serverkonfiguration prüfen.");
+        JToken json;
+        try { json = JToken.Parse(body, new JsonLoadSettings { DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error }); }
+        catch (JsonException) { throw new MeetlingApiException("Meetling hat ungültiges JSON geliefert."); }
+        if (json is JObject error && error["error"]?.Type == JTokenType.Boolean && (bool)error["error"]!)
         {
-            new KeyValuePair<string, string>("email", request.Email),
-            new KeyValuePair<string, string>("name", request.Name),
-            new KeyValuePair<string, string>("duration", request.DurationMinutes.ToString(CultureInfo.InvariantCulture)),
-            new KeyValuePair<string, string>("server", request.Server),
-            new KeyValuePair<string, string>("start", request.Start.ToString("o", CultureInfo.InvariantCulture))
-        };
-        if (request.KeycloakId is { } keycloakId && !string.IsNullOrWhiteSpace(keycloakId))
-        {
-            fields.Add(new KeyValuePair<string, string>("keycloakId", keycloakId));
+            var reason = error["reason"]?.Type == JTokenType.String ? (string?)error["reason"] : null;
+            // Only documented reasons reach UI; unknown response content may contain secrets.
+            var known = new[] { "No user loged in", "No user loged found", "User not found", "Server not found", "Server not allowed for user" };
+            throw new MeetlingApiException(Array.IndexOf(known, reason) >= 0 ? "Meetling: " + reason : "Meetling meldet einen fachlichen Fehler.", reason);
         }
-        var message = new HttpRequestMessage(HttpMethod.Post, SettingsValidator.NormalizeBaseUrl(baseUrl) + "/api/v1/room")
+        return json;
+    }
+    private static string Required(JToken json, string key)
+    {
+        if (json[key]?.Type != JTokenType.String || string.IsNullOrWhiteSpace((string?)json[key])) throw new MeetlingApiException("Meetling-Antwort: Pflichtfeld fehlt oder ist ungültig.");
+        return (string)json[key]!;
+    }
+    public static LoginResult ParseLogin(string body)
+    {
+        var json = Parse(body);
+        if (!(json is JObject)) throw new MeetlingApiException("Ungültiges Login-Schema.");
+        var token = Required(json, "token"); SettingsValidator.ValidateToken(token);
+        return new LoginResult(token, Required(json, "name"));
+    }
+    public async Task<IReadOnlyList<Server>> GetServersAsync(MeetlingSettings settings, string token, CancellationToken ct)
+    {
+        var servers = ParseServers(await Send(settings, "servers", token, null, ct).ConfigureAwait(false));
+        Trace("ApiRequest servers parsed count=" + servers.Count);
+        return servers;
+    }
+    public static IReadOnlyList<Server> ParseServers(JToken json)
+    {
+        if (!(json is JArray array)) throw new MeetlingApiException("Ungültiges Serverlisten-Schema.");
+        var ids = new HashSet<string>(StringComparer.Ordinal); var servers = new List<Server>();
+        foreach (var item in array)
         {
-            Content = new FormUrlEncodedContent(fields)
-        };
-        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        return message;
-    }
-
-    public static HttpRequestMessage BuildInfoRequest(string baseUrl, string apiKey, string uid)
-    {
-        var message = new HttpRequestMessage(HttpMethod.Get,
-            SettingsValidator.NormalizeBaseUrl(baseUrl) + "/api/v1/info/" + Uri.EscapeDataString(uid));
-        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        return message;
-    }
-
-    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        try { return await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false); }
-        catch (TaskCanceledException ex) { throw new MeetlingApiException("Zeitüberschreitung bei der Verbindung zu Meetling.", ex); }
-        catch (HttpRequestException ex) { throw new MeetlingApiException("Meetling ist nicht erreichbar.", ex); }
-    }
-
-    private void EnsureSuccess(HttpResponseMessage response, string json)
-    {
-        if (!response.IsSuccessStatusCode)
-            throw new MeetlingApiException("Meetling meldet einen HTTP-Fehler (" + (int)response.StatusCode + ").");
-        var data = Deserialize(json);
-        if (data.TryGetValue("error", out var error) && error is bool isError && isError)
-            throw new MeetlingApiException("Meetling konnte die Konferenz nicht erstellen.");
-    }
-
-    private string ReadRequiredString(string json, string field, string missingMessage)
-    {
-        var data = Deserialize(json);
-        if (!data.TryGetValue(field, out var value) || !(value is string text) || string.IsNullOrWhiteSpace(text))
-            throw new MeetlingApiException(missingMessage);
-        return text;
-    }
-
-    private Dictionary<string, object> Deserialize(string json)
-    {
-        try
-        {
-            var serializer = new DataContractJsonSerializer(typeof(Dictionary<string, object>),
-                new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
-            using (var stream = new System.IO.MemoryStream(Encoding.UTF8.GetBytes(json)))
-                return (Dictionary<string, object>)serializer.ReadObject(stream) ?? throw new InvalidOperationException();
+            // Numeric integer IDs only. Json.NET preserves large integers (BigInteger).
+            if (!(item is JObject) || item["id"]?.Type != JTokenType.Integer) throw new MeetlingApiException("Server-ID fehlt oder ist keine Ganzzahl.");
+            string id = item["id"]!.ToString(Formatting.None);
+            if (!ids.Add(id)) throw new MeetlingApiException("Doppelte Server-ID.");
+            servers.Add(new Server(id, Required(item, "name")));
         }
-        catch (Exception ex) when (ex is FormatException || ex is InvalidOperationException || ex is System.Runtime.Serialization.SerializationException)
-        { throw new MeetlingApiException("Meetling hat eine ungültige JSON-Antwort geliefert.", ex); }
+        return servers;
+    }
+    public async Task<ConferenceResult> CreateConferenceAsync(MeetlingSettings settings, string token, string serverId, CancellationToken ct)
+    {
+        var json = await Send(settings, "create", token, serverId, ct).ConfigureAwait(false);
+        if (!(json is JArray array) || array.Count != 1 || !(array[0] is JObject)) throw new MeetlingApiException("Erwartet wird genau eine Konferenz.");
+        var url = Required(array[0], "url"); var title = Required(array[0], "title");
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || uri.UserInfo.Length != 0) throw new MeetlingApiException("Ungültiger HTTPS-Konferenzlink.");
+        // The returned database ID is distinct from the participant URL, title and server ID.
+        // Retain the successfully created room even if an older server omits the new ID field.
+        var idValue = array[0]["id"];
+        string? id = idValue?.Type == JTokenType.Integer ? idValue!.ToString(Formatting.None) : idValue?.Type == JTokenType.String ? (string?)idValue : null;
+        if (id == null || id.Length == 0 || !System.Linq.Enumerable.All(id, c => c >= '0' && c <= '9') || !System.Linq.Enumerable.Any(id, c => c != '0')) id = null;
+        string? editUrl = id == null ? null : settings.Installation + "room/dashboard?editConference_id=" + Uri.EscapeDataString(id);
+        if (id == null) Trace("ApiRequest create missing-or-invalid-conference-id");
+        return new ConferenceResult(url, title, id, editUrl);
+    }
+    public async Task LogoutAsync(MeetlingSettings settings, string token, CancellationToken ct)
+    {
+        var json = await Send(settings, "logout", token, null, ct).ConfigureAwait(false);
+        if (!(json is JObject) || json["token"]?.Type != JTokenType.Null) throw new MeetlingApiException("Logout wurde nicht bestätigt.");
     }
 }
