@@ -109,7 +109,7 @@ internal sealed class PluginController : IDisposable
             {
                 if (!epoch.IsCurrent(version)) return;
                 servers = list; serversLoaded = DateTime.UtcNow; server = ServerSelection.Choose(list);
-                if (server != null) { target.MarkPending(); requested = true; SetStatus("Konferenz wird erstellt."); }
+                if (server != null && epoch.IsCurrent(version) && !ct.IsCancellationRequested) { target.MarkPending(); requested = true; SetStatus("Konferenz wird erstellt."); }
             });
             if (server == null || !epoch.IsCurrent(version)) return;
             using (var http = MeetlingApiClient.CreateHttpClient(settings)) result = await new MeetlingApiClient(http).CreateConferenceAsync(settings, token, server.Id, ct);
@@ -165,7 +165,11 @@ internal sealed class PluginController : IDisposable
     }
     private void ClearLocal(string installation, string status)
     {
-        tokens.Delete(installation); Invalidate(); SetStatus(status);
+        bool deleted = true;
+        try { tokens.Delete(installation); } catch (Exception ex) { deleted = false; DiagnosticLog.Write("Lokale Tokendatei konnte nicht gelöscht werden", ex); }
+        Invalidate();
+        SetStatus(deleted ? status : status + " Achtung: Die lokale Tokendatei konnte nicht gelöscht werden; nur der Arbeitsspeicher wurde bereinigt.");
+        if (!deleted) LocalDialog.Show("Die Serverantwort wurde verarbeitet. Die lokale Tokendatei konnte nicht gelöscht werden. Bitte vor dem nächsten Outlook-Start den Zugriff auf den Tokenstore prüfen.");
     }
     private Task Error(int version, Exception ex, string context) => ui.InvokeAsync(() =>
     {
