@@ -1,6 +1,6 @@
 # Meetling für Outlook Classic – Outlook-Plugin-API
 
-Klassisches COM-Add-in für .NET Framework 4.8, Version 1.3.3.0.
+Klassisches COM-Add-in für .NET Framework 4.8, Version 1.3.4.0.
 ProgID und CLSID sowie Logo und Kalenderbutton bleiben erhalten.
 Die aktive Konferenzaktion verwendet die dokumentierte Outlook-Plugin-API.
 

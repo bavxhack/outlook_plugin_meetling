@@ -95,3 +95,21 @@ Zertifikatsprüfung und unveränderte globale Einstellungen. Dies ist ein
 Konfigurations-/Runtime-Regressionstest, kein echter TLS-Handshake gegen die
 Nutzerinstallation. Beide Architekturpakete sind als 1.3.3 gekennzeichnet.
 Die erfolgreiche Serververbindung nach dieser Änderung bleibt live zu prüfen.
+
+## Neue getrennte Controller-Routen (Version 1.3.4)
+
+Aktuelle Wiki-Rohfassung vom 20.10.2026 geprüft (die normale Wiki-Ansicht lieferte
+zunächst einen veralteten Cache). Login bleibt unter room/outlook/plugin;
+Server, Erstellung und Logout verwenden api/v1/outlook/plugin. Alle drei
+API-Aktionen verlangen Authorization: Bearer, auch die Erstellung. GET/POST sind
+nun verbindliche Routenattribute. Antwortschemata und Moderatorgrenze bleiben
+wie beschrieben. Quelle:
+https://raw.githubusercontent.com/wiki/H2-invent/jitsi-admin/Outlook-Plugin-API-Doku.md
+
+Getrennte LoginBasePath-/ApiBasePath-Konfiguration, exakte Request-URLs mit
+Installationsunterpfad, einheitliche Bearer-Header, fehlender alter token-Header,
+Login-Endpointbindung sowie Migration alter Standardkonfigurationen werden
+getestet. Benutzer- und Verwaltungsdateien bleiben beim Laden bytegleich;
+benutzerdefinierte Präfixe bleiben erhalten, beschädigte Vorgaben bleiben
+blockierend. TLS-Korrektur aus 1.3.3 wird weiterverwendet. Ein erfolgreicher
+Serverabruf/Erstellung mit den neuen Routen ist noch live zu bestätigen.

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*" Name="Meetling Outlook Add-in" Language="1031" Version="1.3.3" Manufacturer="Meetling" UpgradeCode="9B30E685-B217-4B68-A511-53304A097FD7">
+  <Product Id="*" Name="Meetling Outlook Add-in" Language="1031" Version="1.3.4" Manufacturer="Meetling" UpgradeCode="9B30E685-B217-4B68-A511-53304A097FD7">
     <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser" Platform="$(var.Platform)" />
     <MajorUpgrade DowngradeErrorMessage="Eine neuere Version ist bereits installiert."/><MediaTemplate EmbedCab="yes"/>
     <Directory Id="TARGETDIR" Name="SourceDir"><Directory Id="LocalAppDataFolder"><Directory Id="CompanyDir" Name="Meetling"><Directory Id="INSTALLFOLDER" Name="OutlookAddIn">
@@ -16,7 +16,7 @@
         <RegistryKey Root="HKCU" Key="Software\Classes\Meetling.OutlookAddIn"><RegistryValue Type="string" Value="Meetling Outlook Add-in"/></RegistryKey>
         <RegistryKey Root="HKCU" Key="Software\Classes\Meetling.OutlookAddIn\CLSID"><RegistryValue Type="string" Value="{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}"/></RegistryKey>
         <RegistryKey Root="HKCU" Key="Software\Classes\CLSID\{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}"><RegistryValue Type="string" Value="Meetling.OutlookAddIn.MeetlingAddIn"/></RegistryKey>
-        <RegistryKey Root="HKCU" Key="Software\Classes\CLSID\{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}\InprocServer32"><RegistryValue Type="string" Value="mscoree.dll"/><RegistryValue Name="ThreadingModel" Type="string" Value="Both"/><RegistryValue Name="Class" Type="string" Value="Meetling.OutlookAddIn.MeetlingAddIn"/><RegistryValue Name="Assembly" Type="string" Value="Meetling.OutlookAddIn, Version=1.3.3.0, Culture=neutral, PublicKeyToken=null"/><RegistryValue Name="RuntimeVersion" Type="string" Value="v4.0.30319"/><RegistryValue Name="CodeBase" Type="string" Value="[#AddInDll]"/></RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\CLSID\{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}\InprocServer32"><RegistryValue Type="string" Value="mscoree.dll"/><RegistryValue Name="ThreadingModel" Type="string" Value="Both"/><RegistryValue Name="Class" Type="string" Value="Meetling.OutlookAddIn.MeetlingAddIn"/><RegistryValue Name="Assembly" Type="string" Value="Meetling.OutlookAddIn, Version=1.3.4.0, Culture=neutral, PublicKeyToken=null"/><RegistryValue Name="RuntimeVersion" Type="string" Value="v4.0.30319"/><RegistryValue Name="CodeBase" Type="string" Value="[#AddInDll]"/></RegistryKey>
       </Component>
     </Directory></Directory></Directory></Directory>
     <Feature Id="Complete" Title="Meetling Outlook Add-in" Level="1"><ComponentRef Id="AddInFiles"/></Feature>

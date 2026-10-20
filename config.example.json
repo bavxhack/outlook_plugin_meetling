@@ -1,6 +1,7 @@
 {
   "baseUrl": "https://meetling.example.invalid/",
-  "apiBasePath": "room/outlook/plugin/",
+  "apiBasePath": "api/v1/outlook/plugin/",
+  "loginBasePath": "room/outlook/plugin/",
   "endpoints": {
     "login": "outlooklogin",
     "servers": "server",

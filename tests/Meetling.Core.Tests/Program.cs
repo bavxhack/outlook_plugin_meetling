@@ -64,7 +64,7 @@ internal static class Program
             Check(TransportFailure.SafeDetails(failures[1].Error).Contains("WebStatus=SecureChannelFailure"), "WebException status preserved");
             var settings = new MeetlingSettings { BaseUrl = "https://HOST.example/meetling" };
             Check(settings.Installation == "https://host.example/meetling/", "normalization");
-            Check(settings.Endpoint("server").AbsoluteUri == "https://host.example/meetling/room/outlook/plugin/server", "installation subpath");
+            Check(settings.Endpoint("server").AbsoluteUri == "https://host.example/meetling/api/v1/outlook/plugin/server", "installation subpath");
             foreach (var bad in new[] { "http://host/", "https://user:pw@host/", "https://host/?x", "https://host/#x", "" }) Reject(() => SettingsValidator.NormalizeBaseUrl(bad), "invalid base URL");
             foreach (var bad in new[] { "/server", "../server", "https://other/server", "a\\b", "%2e%2e/a", "server?x" }) Reject(() => settings.Endpoint(bad), "unsafe endpoint");
             foreach (var token in new[] { "", " ", "a\rb", "a\nb", "a\0b" }) Reject(() => MeetlingApiClient.BuildRequest(settings, "servers", token), "bad token");
@@ -72,8 +72,10 @@ internal static class Program
             {
                 using (var request = MeetlingApiClient.BuildRequest(settings, action, "opaque-token", "9007199254740993"))
                 {
-                    Check(request.Headers.GetValues(action == "create" ? "token" : "Authorization").Single() == (action == "create" ? "opaque-token" : "Bearer opaque-token"), "exact endpoint-specific authorization header");
-                    Check(!request.Headers.Contains(action == "create" ? "Authorization" : "token"), "separate header");
+                    Check(request.Headers.GetValues("Authorization").Single() == "Bearer opaque-token", "uniform Bearer authorization");
+                    Check(!request.Headers.Contains("token"), "obsolete token header absent");
+                    Check(request.RequestUri!.AbsoluteUri == "https://host.example/meetling/api/v1/outlook/plugin/" + (action == "servers" ? "server" : action == "logout" ? "logout" : "createConference"), "exact new route per action");
+                    Check(request.Headers.Accept.Single().MediaType == "application/json", "JSON response requested");
                     Check(request.Method == (action == "create" ? HttpMethod.Post : HttpMethod.Get), "method convention");
                     if (action == "create") { Check(await request.Content.ReadAsStringAsync() == "server_id=9007199254740993", "only server ID, no Outlook content"); Check(request.Content.Headers.ContentType.MediaType == "application/x-www-form-urlencoded", "form"); }
                 }
@@ -94,9 +96,9 @@ internal static class Program
             Check(MeetlingApiClient.ParseServers(JToken.Parse("[{\"id\":999999999999999999999999999999,\"name\":\"a\"}]"))[0].Id == "999999999999999999999999999999", "large ID lossless");
             foreach (var url in new[] { "https://sso.example/otp?session=secret", "https://host.example/callback?code=secret", "about:blank" }) Check(BrowserNavigationPolicy.IsAllowed(url), "supported browser navigation");
             foreach (var url in new[] { "http://sso.example/otp", "javascript:alert(1)", "file:///secret", "data:text/html,secret", "https://user:password@sso.example/", "not a URL" }) Check(!BrowserNavigationPolicy.IsAllowed(url), "unsupported browser navigation");
-            Check(BrowserNavigationPolicy.Classify(settings.Endpoint(settings.Endpoints.Login), "https://sso.example/otp?session=secret") == "identity-provider", "safe SSO diagnosis excludes session data");
-            Check(BrowserNavigationPolicy.Classify(settings.Endpoint(settings.Endpoints.Login), "https://host.example/callback?code=secret") == "installation", "safe callback diagnosis excludes codes");
-            var configuredLogin = settings.Endpoint(settings.Endpoints.Login);
+            Check(BrowserNavigationPolicy.Classify(settings.LoginEndpoint, "https://sso.example/otp?session=secret") == "identity-provider", "safe SSO diagnosis excludes session data");
+            Check(BrowserNavigationPolicy.Classify(settings.LoginEndpoint, "https://host.example/callback?code=secret") == "installation", "safe callback diagnosis excludes codes");
+            var configuredLogin = settings.LoginEndpoint;
             Check(BrowserNavigationPolicy.CanReturnViaHttps(configuredLogin, "http://host.example/meetling/room/outlook/plugin/outlooklogin"), "HTTP redirect replaced with exact configured HTTPS login");
             foreach (var bad in new[] { "http://other.example/meetling/room/outlook/plugin/outlooklogin", "http://host.example/other", "http://host.example:8080/meetling/room/outlook/plugin/outlooklogin", "http://host.example/meetling/room/outlook/plugin/outlooklogin?code=secret", "http://host.example/meetling/room/outlook/plugin/outlooklogin#secret", "http://user:secret@host.example/meetling/room/outlook/plugin/outlooklogin", "https://host.example/meetling/room/outlook/plugin/outlooklogin" }) Check(!BrowserNavigationPolicy.CanReturnViaHttps(configuredLogin, bad), "no alternate or parameterized HTTP recovery");
             Check(BrowserNavigationPolicy.BlockReason("http://host.example/callback?code=secret") == "http", "blocked scheme diagnosis excludes parameters");
@@ -105,10 +107,10 @@ internal static class Program
             using (var bytes = new MemoryStream(Encoding.UTF8.GetBytes("{\"token\":\"opaque\",\"name\":\"Erika\"}"))) Check((await BrowserLoginResponse.ReadAsync(bytes, CancellationToken.None))!.Token == "opaque", "browser response stream validation");
             using (var bytes = new MemoryStream(Encoding.UTF8.GetBytes("<html>not JSON</html>"))) await RejectAsync(() => BrowserLoginResponse.ReadAsync(bytes, CancellationToken.None), "invalid browser response rejected");
             using (var cancellation = new CancellationTokenSource()) { cancellation.Cancel(); await RejectAsync(() => BrowserLoginResponse.ReadAsync(null, cancellation.Token), "late browser response rejected"); }
-            var expected = settings.Endpoint(settings.Endpoints.Login);
+            var expected = settings.LoginEndpoint;
             Check(expected.AbsoluteUri == "https://host.example/meetling/room/outlook/plugin/outlooklogin", "default Outlook login endpoint");
             Check(SettingsValidator.IsExpectedLogin(expected, expected.AbsoluteUri), "exact login");
-            foreach (var bad in new[] { "https://host.example/meetling/room/outlook/plugin/login", "https://other.example/meetling/room/outlook/plugin/outlooklogin", expected + "/", expected + "?x", expected + "#x", "http://host.example/meetling/room/outlook/plugin/outlooklogin" }) Check(!SettingsValidator.IsExpectedLogin(expected, bad), "reject other login response");
+            foreach (var bad in new[] { "https://host.example/meetling/api/v1/outlook/plugin/outlooklogin", "https://host.example/meetling/room/outlook/plugin/login", "https://other.example/meetling/room/outlook/plugin/outlooklogin", expected + "/", expected + "?x", expected + "#x", "http://host.example/meetling/room/outlook/plugin/outlooklogin" }) Check(!SettingsValidator.IsExpectedLogin(expected, bad), "reject other login response");
             Check(MeetlingApiClient.ParseLogin("{\"token\":\"opaque\",\"name\":\"Erika\"}").Name == "Erika", "login schema");
             foreach (var bad in new[] { "[]", "{}", "{\"token\":\" \",\"name\":\"a\"}", "{\"token\":123,\"name\":\"a\"}", "{\"token\":\"a\",\"name\":null}" }) Reject(() => MeetlingApiClient.ParseLogin(bad), "invalid login");
             var handler = new Handler(); using (var http = new HttpClient(handler))
@@ -140,8 +142,23 @@ internal static class Program
                 var managed = Path.Combine(dir, "managed.json"); var user = Path.Combine(dir, "user.json"); var store = new ConfigurationStore(managed, user);
                 Check(store.Load().Settings == null && !store.Load().Managed, "missing configuration");
                 store.SaveUser(settings); Check(store.Load().Settings!.Installation == settings.Installation, "GUI fallback");
+                string originalUser = File.ReadAllText(user);
                 File.WriteAllText(managed, "{\"baseUrl\":\"https://org.example/installation/\"}"); Check(store.Load().Managed && store.Load().Settings!.Installation == "https://org.example/installation/", "managed priority");
                 Reject(() => store.SaveUser(settings), "managed lock");
+                string legacy = "{\"baseUrl\":\"https://org.example/installation/\",\"apiBasePath\":\"room/outlook/plugin/\",\"endpoints\":{\"login\":\"outlooklogin\",\"servers\":\"server\",\"createConference\":\"createConference\",\"logout\":\"logout\"}}";
+                File.WriteAllText(managed, legacy);
+                var migrated = store.Load();
+                Check(migrated.Managed && migrated.Settings!.Endpoint(migrated.Settings.Endpoints.Servers).AbsoluteUri == "https://org.example/installation/api/v1/outlook/plugin/server", "legacy managed API prefix upgraded in memory");
+                Check(migrated.Settings!.LoginEndpoint.AbsoluteUri == "https://org.example/installation/room/outlook/plugin/outlooklogin", "login retains separate browser prefix");
+                Check(File.ReadAllText(managed) == legacy, "managed JSON never rewritten during migration");
+                File.WriteAllText(user, legacy.Replace("outlooklogin", "login")); File.Delete(managed);
+                var migratedUser = store.Load();
+                Check(!migratedUser.Managed && migratedUser.Settings!.Endpoints.Login == "outlooklogin", "old GUI login default migrated");
+                Check(File.ReadAllText(user).Contains("room/outlook/plugin/"), "user JSON unchanged until explicit save");
+                File.WriteAllText(managed, "{\"baseUrl\":\"https://org.example/installation/\",\"apiBasePath\":\"custom-api/\",\"loginBasePath\":\"custom-login/\",\"endpoints\":{\"login\":\"signin\"}}");
+                var custom = store.Load().Settings!;
+                Check(custom.Endpoint(custom.Endpoints.Servers).AbsoluteUri == "https://org.example/installation/custom-api/server" && custom.LoginEndpoint.AbsoluteUri == "https://org.example/installation/custom-login/signin", "custom routing prefixes preserved");
+                File.WriteAllText(user, originalUser);
                 File.WriteAllText(managed, "{broken"); Check(store.Load().Managed && store.Load().Settings == null, "no GUI fallback for broken policy");
                 File.Delete(managed); Check(store.Load().Settings!.Installation == settings.Installation, "fallback after removal");
             }

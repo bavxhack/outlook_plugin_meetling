@@ -12,3 +12,8 @@
   mit beiden verfügbaren Bitnessen. Siehe smoke-test.md und plugin-api.md.
 - Nicht im Umfang: Backendänderung, Terminsynchronisierung, Refresh-/Device-Code-
   Endpunkte, externe Browsercallbacks oder Cookie-Workarounds.
+
+Aktueller Routenvertrag (1.3.4): Browserlogin unter room/outlook/plugin,
+tokenbasierte Aufrufe unter api/v1/outlook/plugin, einheitlicher Bearer-Header.
+Bekannte alte Standardkonfigurationen werden beim Laden im Speicher angepasst;
+Dateien und eigene Pfadpräfixe werden dabei nicht überschrieben.

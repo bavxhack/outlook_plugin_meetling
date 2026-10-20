@@ -64,7 +64,7 @@ internal sealed class PluginController : IDisposable
         SetStatus("Anmeldung läuft.");
         try
         {
-            var result = await BrowserLogin(settings.Endpoint(settings.Endpoints.Login), ct);
+            var result = await BrowserLogin(settings.LoginEndpoint, ct);
             await ui.InvokeAsync(() =>
             {
                 if (disposed || !epoch.IsCurrent(version) || ct.IsCancellationRequested) return;

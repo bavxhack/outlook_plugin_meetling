@@ -27,7 +27,7 @@ public sealed class ConfigurationStore
         try
         {
             var settings = JsonConvert.DeserializeObject<MeetlingSettings>(File.ReadAllText(path), JsonSettings) ?? throw new ArgumentException();
-            settings.Validate(); return new ConfigurationSnapshot(settings, managed, null);
+            settings.UpgradeKnownLegacyRoutes(); settings.Validate(); return new ConfigurationSnapshot(settings, managed, null);
         }
         catch (Exception) { return new ConfigurationSnapshot(null, managed, managed ? "Verwaltete Konfiguration ist ungültig oder nicht lesbar." : "Konfiguration fehlt oder ist ungültig."); }
     }

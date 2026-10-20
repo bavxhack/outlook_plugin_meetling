@@ -29,7 +29,8 @@ public sealed class MeetlingApiClient
         bool create = action == "create";
         string endpoint = create ? settings.Endpoints.CreateConference : action == "logout" ? settings.Endpoints.Logout : action == "servers" ? settings.Endpoints.Servers : throw new ArgumentException("Unbekannte Aktion.");
         var request = new HttpRequestMessage(create ? HttpMethod.Post : HttpMethod.Get, settings.Endpoint(endpoint));
-        request.Headers.TryAddWithoutValidation(create ? "token" : "Authorization", create ? token : "Bearer " + token);
+        request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + token);
+        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
         if (create)
         {
             if (string.IsNullOrWhiteSpace(serverId)) { request.Dispose(); throw new ArgumentException("Server-ID fehlt."); }

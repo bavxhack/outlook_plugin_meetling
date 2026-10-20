@@ -27,7 +27,11 @@ Keine Secrets protokollieren.
    den letzten BrowserLogin-Schritt und gegebenenfalls WebErrorStatus festhalten.
    Fehlt die Rückkehr, Integrationsgrenze protokollieren. Fremde Origin/Pfade,
    Abbruch, Timeout und mehrfachen Klick prüfen.
-5. Outlook neu starten: keine automatische Browseröffnung, Token wird sicher
+5. Neue Routen prüfen: Login bleibt unter `/room/outlook/plugin/outlooklogin`;
+   Server/Create/Logout gehen unter `/api/v1/outlook/plugin/` mit Bearer ab.
+   Alte Standard-JSON laden und gleiche Datei nachher prüfen; eigene Präfixe
+   müssen erhalten bleiben. Kein API-Redirect und kein alter token-Header.
+   Outlook neu starten: keine automatische Browseröffnung, Token wird sicher
    wiederverwendet; Server aktualisieren. Serverlisten mit 0/1/2/>2 Einträgen,
    gleichen Namen, Sortierung, ID-Auswahl und Abbruch prüfen.
 6. Neues Meetling aus Kalender: nativer Besprechungsentwurf. Termin-Inspector

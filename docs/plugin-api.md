@@ -22,7 +22,7 @@ Datei noch übergeordneten Ordner ersetzen. Der Add-in-Installer legt keine akti
 Verwaltungsdatei an und überschreibt keine vorhandene Konfiguration.
 
 `baseUrl` umfasst den Installationspfad. `https://host/meetling/` führt zu
-`https://host/meetling/room/outlook/plugin/server`. API-Pfade sind relativ;
+`https://host/meetling/api/v1/outlook/plugin/server`. API-Pfade sind relativ;
 führende Slashes, Traversierung, Query und absolute Fremdadressen werden abgelehnt.
 Timeout: 1–300 Sekunden. Änderungen werden über „Konfiguration neu laden“ bzw.
 die Einstellungen übernommen. Laufende Antworten werden ungültig, Browserlogin
@@ -32,10 +32,21 @@ Kein automatischer Logout beim früheren Server.
 ## Anmeldung und Token
 
 „Anmelden“ öffnet ein eigenes sichtbares Edge-WebView2-Fenster erst nach Klick.
-Der Standard-Login-Endpunkt ist nun `/room/outlook/plugin/outlooklogin`
-(statt `/room/outlook/plugin/login`). Bei bestehenden Konfigurationsdateien
-`endpoints.login` auf `outlooklogin` setzen und die Konfiguration neu laden.
-Der Schlüssel `login` bleibt unverändert; nur sein Pfadwert ändert sich.
+Login verwendet `loginBasePath` (Standard `room/outlook/plugin/`) und
+`endpoints.login` (Standard `outlooklogin`). Seine vollständige Route ist
+`/room/outlook/plugin/outlooklogin`. Die tokenbasierten API-Aufrufe verwenden
+stattdessen `apiBasePath` (Standard `api/v1/outlook/plugin/`). Die Basisadresse
+enthält weiterhin nur die Installation einschließlich eines Unterpfads.
+
+Ab Version 1.3.4 werden bekannte alte Standardwerte beim Laden nur im
+Arbeitsspeicher umgestellt: `apiBasePath` gleich `room/outlook/plugin/` (auch
+ohne abschließenden Slash) wird `api/v1/outlook/plugin/`. Der alte Standard-
+Loginname `login` wird bei dieser alten Standardkonfiguration `outlooklogin`.
+Verwaltete und benutzerbezogene JSON-Dateien werden dadurch nicht überschrieben.
+Eigene API-Präfixe und angepasste Endpunktnamen bleiben erhalten. Bereits
+verschlüsselt gespeicherte Tokens bleiben an dieselbe Installation gebunden.
+Neue Konfigurationen sollten die Werte aus config.example.json übernehmen.
+
 Es navigiert zum konfigurierten Login-Endpunkt, erlaubt HTTPS-Weiterleitungen und
 MFA im gleichen Fenster und übernimmt nur dessen exakte JSON-Netzwerkantwort
 mittels WebResourceResponseReceived/GetContentAsync. Fremde Origins, abweichende
@@ -135,16 +146,23 @@ behoben werden, nicht durch Abschalten der Zertifikatsprüfung.
 
 ## HTTP und Konferenz
 
-Konvention: GET Login (Browser), GET Server und Logout (HttpClient), POST
-createConference. Wiki-Beispiele nennen bei Login/Logout auch POST, die Übersicht
-empfiehlt GET; wir folgen der Übersicht und wechseln Methoden niemals automatisch.
-Aktualisierung laut Nutzer vom 20.10.2026: Server/Logout benötigen jetzt
-`Authorization: Bearer <token>`. Erstellung verwendet `token: <token>` und genau
-ein Formularfeld `server_id`. Die Bearer-Ergänzung betrifft die Authorization-
-Header. Kein JSON-Body oder Outlook-Inhalt. Gespeicherte Tokens bleiben opak
-und können weiterverwendet werden; der Client ergänzt das Präfix pro Request. HttpClient
-verwendet keine Cookies und keine Redirects; Header gelten nur für den Request.
-TLS-Zertifikatsprüfungen bleiben aktiv.
+Der aktuelle Vertrag trennt Browserlogin und API-Routen:
+
+| Aktion | Methode | Pfad relativ zur Installation | Header |
+| --- | --- | --- | --- |
+| Login | GET im Browser | `room/outlook/plugin/outlooklogin` | Browser-Sitzung |
+| Serverliste | GET | `api/v1/outlook/plugin/server` | `Authorization: Bearer <token>` |
+| Konferenz | POST | `api/v1/outlook/plugin/createConference` | `Authorization: Bearer <token>` |
+| Logout | GET | `api/v1/outlook/plugin/logout` | `Authorization: Bearer <token>` |
+
+Diese Methoden sind jetzt in den Controller-Routen festgelegt. Das Formular der
+Erstellung enthält ausschließlich `server_id`; der frühere separate token-Header
+wird nicht mehr gesendet. Der Tokenstore enthält weiterhin nur den opaken Wert;
+Bearer wird pro API-Request ergänzt. Kein JSON-Body oder Outlook-Inhalt.
+HttpClient verwendet keine Cookies, folgt keinen Redirects und sendet seine
+Header nur mit dem einzelnen Request. TLS-Zertifikatsprüfungen bleiben aktiv.
+Die Rohfassung der Dokumentation wurde wegen eines veralteten Wiki-Web-Caches
+zusätzlich geprüft: https://raw.githubusercontent.com/wiki/H2-invent/jitsi-admin/Outlook-Plugin-API-Doku.md
 
 Servercache maximal zwei Minuten, verworfen bei Anmeldung, Logout und Reload.
 Null Server verhindern Erstellung; ein Server wird direkt verwendet, ab zwei

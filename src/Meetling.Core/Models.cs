@@ -3,17 +3,32 @@ namespace Meetling.Core;
 public sealed class MeetlingSettings
 {
     public string BaseUrl { get; set; } = "";
-    public string ApiBasePath { get; set; } = "room/outlook/plugin/";
+    public string ApiBasePath { get; set; } = "api/v1/outlook/plugin/";
+    public string LoginBasePath { get; set; } = "room/outlook/plugin/";
     public EndpointSettings Endpoints { get; set; } = new EndpointSettings();
     public int TimeoutSeconds { get; set; } = 30;
     [Newtonsoft.Json.JsonIgnore]
     public string Installation => SettingsValidator.NormalizeBaseUrl(BaseUrl);
-    public Uri Endpoint(string relative) => new Uri(Installation + SettingsValidator.RelativePath(ApiBasePath).TrimEnd('/') + "/" + SettingsValidator.RelativePath(relative));
+    public Uri Endpoint(string relative) => Compose(ApiBasePath, relative);
+    [Newtonsoft.Json.JsonIgnore]
+    public Uri LoginEndpoint => Compose(LoginBasePath, Endpoints.Login);
+    private Uri Compose(string prefix, string relative) => new Uri(Installation + SettingsValidator.RelativePath(prefix).TrimEnd('/') + "/" + SettingsValidator.RelativePath(relative));
+    public void UpgradeKnownLegacyRoutes()
+    {
+        // Only the previous shipped prefix is recognized. Never rewrite custom paths
+        // or the configuration file itself; tokens remain bound to the installation.
+        if (ApiBasePath == "room/outlook/plugin/" || ApiBasePath == "room/outlook/plugin")
+        {
+            ApiBasePath = "api/v1/outlook/plugin/";
+            if (LoginBasePath == "room/outlook/plugin/" && Endpoints != null && Endpoints.Login == "login") Endpoints.Login = "outlooklogin";
+        }
+    }
     public void Validate()
     {
         _ = Installation;
         if (TimeoutSeconds < 1 || TimeoutSeconds > 300 || Endpoints == null) throw new ArgumentException("Ungültige API-Konfiguration.");
-        foreach (var endpoint in new[] { Endpoints.Login, Endpoints.Servers, Endpoints.CreateConference, Endpoints.Logout }) _ = Endpoint(endpoint);
+        _ = LoginEndpoint;
+        foreach (var endpoint in new[] { Endpoints.Servers, Endpoints.CreateConference, Endpoints.Logout }) _ = Endpoint(endpoint);
     }
 }
 public sealed class EndpointSettings
