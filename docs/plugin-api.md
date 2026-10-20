@@ -108,13 +108,34 @@ es gibt keine pauschale HTTP-Freigabe und keine Endlosschleife. Dies ist eine
 abgesicherte Behandlung eines möglichen Proxy-/Scheme-Problems, kein Nachweis,
 dass genau dieses Problem beim gemeldeten Live-Versuch vorlag.
 
+## API-Transport nach erfolgreicher Anmeldung (Version 1.3.2)
+
+WebView2 und HttpClient verwenden unterschiedliche Netzwerkstacks. Ein Erfolg
+im Anmeldebrowser beweist deshalb noch keine funktionierende API-Verbindung.
+TLS- und Zertifikatsrichtlinien des Betriebssystems/Hosts bleiben erhalten.
+Es werden weder globale ServicePointManager-Vorgaben geändert noch eigene
+Zertifikatsprüfungen eingesetzt. Systemproxy, Redirect-Sperre und Verzicht auf
+Cookies bleiben erhalten. Keine automatische Wiederholung.
+
+ApiRequest-Einträge melden die feste Aktion (servers/create/logout), Start,
+HTTP-Status und bei Serverlisten die Anzahl. Transportfehler liefern eine
+begrenzte innere Exceptionkette mit Typ, HRESULT, WebExceptionStatus und
+SocketErrorCode. Keine Exceptiontexte, URLs, Header oder Antwortinhalte.
+DNS-/Proxy-/TLS-/Timeoutfehler werden verständlich angezeigt. Ein Transportfehler
+löscht kein gespeichertes Token; ein erneuter manueller Serverabruf genügt für
+einen weiteren Versuch. Ein Zertifikats- oder Proxyproblem muss administrativ
+behoben werden, nicht durch Abschalten der Zertifikatsprüfung.
+
 ## HTTP und Konferenz
 
 Konvention: GET Login (Browser), GET Server und Logout (HttpClient), POST
 createConference. Wiki-Beispiele nennen bei Login/Logout auch POST, die Übersicht
 empfiehlt GET; wir folgen der Übersicht und wechseln Methoden niemals automatisch.
-Server/Logout: `Authorization: <token>`; Erstellung: `token: <token>`, genau ein
-Formularfeld `server_id`. Kein Bearer, JSON-Body oder Outlook-Inhalt. HttpClient
+Aktualisierung laut Nutzer vom 20.10.2026: Server/Logout benötigen jetzt
+`Authorization: Bearer <token>`. Erstellung verwendet `token: <token>` und genau
+ein Formularfeld `server_id`. Die Bearer-Ergänzung betrifft die Authorization-
+Header. Kein JSON-Body oder Outlook-Inhalt. Gespeicherte Tokens bleiben opak
+und können weiterverwendet werden; der Client ergänzt das Präfix pro Request. HttpClient
 verwendet keine Cookies und keine Redirects; Header gelten nur für den Request.
 TLS-Zertifikatsprüfungen bleiben aktiv.
 

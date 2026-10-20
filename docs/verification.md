@@ -59,3 +59,24 @@ HTTPS-Endpunkts ersetzt; HTTP wird dabei niemals angefragt. Die tatsächliche
 Sperrursache im Nutzerlog bleibt bis zum neuen Versuch offen. Regressionstests
 prüfen fehlende/valide/ungültige/abgebrochene Antwortstreams und die engen
 Grenzen der HTTPS-Rückkehr. Keine erfolgreiche Live-Anmeldung behauptet.
+
+## Anmeldung bestätigt, Server-Transportfehler (Version 1.3.2)
+
+Der Nutzer bestätigt eine funktionierende Anmeldung. Das Log dokumentiert die
+blockierte HTTP-Rückleitung, den Aufruf des konfigurierten HTTPS-Endpunkts und
+`token-response-validated`. Anschließend scheitert der Serverabruf mit
+HttpRequestException 0x80131500. Dieser äußere Fehler allein belegt weder eine
+leere Serverliste noch einen bestimmten TLS-/Proxyfehler.
+
+Der Nutzer meldet anschließend einen geänderten API-Vertrag: vor jedem
+Authorization-Token ist nun Bearer erforderlich. Serverliste und Logout senden
+daher `Authorization: Bearer <token>`; der separate token-Header der Erstellung
+behält den dokumentierten Wert. Tests prüfen beide Authorization-Endpunkte und
+den getrennten Create-Header. Gespeicherte Tokens werden unverändert weitergenutzt.
+
+Globale Netzwerkvorgaben und Zertifikatsprüfung bleiben erhalten. Zusätzlich
+werden innere TLS-/DNS-/Proxy-/Timeoutursachen sekretfrei protokolliert. Neue
+ApiRequest-Einträge unterscheiden Transportfehler von HTTP-Status und einer
+validen leeren Liste. Die konkrete Ursache des äußeren HttpRequestException ist
+im Nutzerlog nicht belegt. Echte Konferenzerstellung und Moderatorzuordnung sind
+weiterhin unbestätigt.

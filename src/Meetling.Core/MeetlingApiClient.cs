@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
+using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -10,15 +11,22 @@ namespace Meetling.Core;
 public sealed class MeetlingApiClient
 {
     private readonly HttpClient http;
-    public MeetlingApiClient(HttpClient http) => this.http = http;
-    public static HttpClient CreateHttpClient(MeetlingSettings settings) => new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds) };
+    private readonly Action<string>? diagnostic;
+    public MeetlingApiClient(HttpClient http, Action<string>? diagnostic = null) { this.http = http; this.diagnostic = diagnostic; }
+    public static HttpClientHandler CreateTransportHandler() => new HttpClientHandler
+    {
+        AllowAutoRedirect = false, UseCookies = false
+        // Keep OS/host TLS policy and certificate validation; transport diagnosis is separate.
+    };
+    public static HttpClient CreateHttpClient(MeetlingSettings settings) => new HttpClient(CreateTransportHandler()) { Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds) };
+    private void Trace(string message) { try { diagnostic?.Invoke(message); } catch (Exception) { /* Logging must not affect HTTP. */ } }
     public static HttpRequestMessage BuildRequest(MeetlingSettings settings, string action, string token, string? serverId = null)
     {
         settings.Validate(); SettingsValidator.ValidateToken(token);
         bool create = action == "create";
         string endpoint = create ? settings.Endpoints.CreateConference : action == "logout" ? settings.Endpoints.Logout : action == "servers" ? settings.Endpoints.Servers : throw new ArgumentException("Unbekannte Aktion.");
         var request = new HttpRequestMessage(create ? HttpMethod.Post : HttpMethod.Get, settings.Endpoint(endpoint));
-        request.Headers.TryAddWithoutValidation(create ? "token" : "Authorization", token);
+        request.Headers.TryAddWithoutValidation(create ? "token" : "Authorization", create ? token : "Bearer " + token);
         if (create)
         {
             if (string.IsNullOrWhiteSpace(serverId)) { request.Dispose(); throw new ArgumentException("Server-ID fehlt."); }
@@ -29,11 +37,23 @@ public sealed class MeetlingApiClient
     private async Task<JToken> Send(MeetlingSettings settings, string action, string token, string? id, CancellationToken ct)
     {
         using (var request = BuildRequest(settings, action, token, id))
-        using (var response = await http.SendAsync(request, ct).ConfigureAwait(false))
         {
-            if (!response.IsSuccessStatusCode) throw new MeetlingApiException("Meetling HTTP-Fehler " + (int)response.StatusCode + ". Weiterleitungen werden nicht verfolgt.", "HTTP " + (int)response.StatusCode);
-            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            return Parse(body);
+            Trace("ApiRequest " + action + " start redirects=off cookies=off");
+            try
+            {
+                using (var response = await http.SendAsync(request, ct).ConfigureAwait(false))
+                {
+                    Trace("ApiRequest " + action + " HTTP=" + (int)response.StatusCode);
+                    if (!response.IsSuccessStatusCode) throw new MeetlingApiException("Meetling HTTP-Fehler " + (int)response.StatusCode + ". Weiterleitungen werden nicht verfolgt.", "HTTP " + (int)response.StatusCode);
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return Parse(body);
+                }
+            }
+            catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException)
+            {
+                Trace("ApiRequest " + action + " failed " + TransportFailure.SafeDetails(ex));
+                throw;
+            }
         }
     }
     public static JToken Parse(string body)
@@ -65,7 +85,11 @@ public sealed class MeetlingApiClient
         return new LoginResult(token, Required(json, "name"));
     }
     public async Task<IReadOnlyList<Server>> GetServersAsync(MeetlingSettings settings, string token, CancellationToken ct)
-        => ParseServers(await Send(settings, "servers", token, null, ct).ConfigureAwait(false));
+    {
+        var servers = ParseServers(await Send(settings, "servers", token, null, ct).ConfigureAwait(false));
+        Trace("ApiRequest servers parsed count=" + servers.Count);
+        return servers;
+    }
     public static IReadOnlyList<Server> ParseServers(JToken json)
     {
         if (!(json is JArray array)) throw new MeetlingApiException("Ungültiges Serverlisten-Schema.");

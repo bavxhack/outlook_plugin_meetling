@@ -79,7 +79,7 @@ internal sealed class PluginController : IDisposable
     private async Task<IReadOnlyList<Server>> LoadServers(MeetlingSettings settings, string token, CancellationToken ct, bool refresh)
     {
         if (!refresh && servers != null && DateTime.UtcNow - serversLoaded < TimeSpan.FromMinutes(2)) return servers;
-        using (var http = MeetlingApiClient.CreateHttpClient(settings)) return await new MeetlingApiClient(http).GetServersAsync(settings, token, ct);
+        using (var http = MeetlingApiClient.CreateHttpClient(settings)) return await new MeetlingApiClient(http, DiagnosticLog.WriteInfo).GetServersAsync(settings, token, ct);
     }
     internal async Task RefreshServers()
     {
@@ -112,7 +112,7 @@ internal sealed class PluginController : IDisposable
                 if (server != null && epoch.IsCurrent(version) && !ct.IsCancellationRequested) { target.MarkPending(); requested = true; SetStatus("Konferenz wird erstellt."); }
             });
             if (server == null || !epoch.IsCurrent(version)) return;
-            using (var http = MeetlingApiClient.CreateHttpClient(settings)) result = await new MeetlingApiClient(http).CreateConferenceAsync(settings, token, server.Id, ct);
+            using (var http = MeetlingApiClient.CreateHttpClient(settings)) result = await new MeetlingApiClient(http, DiagnosticLog.WriteInfo).CreateConferenceAsync(settings, token, server.Id, ct);
             await ui.InvokeAsync(() =>
             {
                 if (!epoch.IsCurrent(version)) { if (!disposed) ShowLink(result.Url); return; }
@@ -147,7 +147,7 @@ internal sealed class PluginController : IDisposable
         int version = epoch.Value; busy = true; SetStatus("Abmeldung läuft.");
         try
         {
-            using (var http = MeetlingApiClient.CreateHttpClient(settings)) await new MeetlingApiClient(http).LogoutAsync(settings, token, lifetime.Token);
+            using (var http = MeetlingApiClient.CreateHttpClient(settings)) await new MeetlingApiClient(http, DiagnosticLog.WriteInfo).LogoutAsync(settings, token, lifetime.Token);
             await ui.InvokeAsync(() => { if (epoch.IsCurrent(version)) ClearLocal(settings.Installation, "Nicht angemeldet. Token serverseitig widerrufen."); });
         }
         catch (MeetlingApiException ex) when (ex.Reason == "No user loged found") { await ui.InvokeAsync(() => { if (epoch.IsCurrent(version)) ClearLocal(settings.Installation, "Nicht angemeldet. Token war nicht zugeordnet; kein neuer Widerruf bestätigt."); }); }
@@ -182,7 +182,7 @@ internal sealed class PluginController : IDisposable
         }
         if (!(ex is MeetlingApiException apiError && apiError.InvalidToken)) SetStatus(context);
         DiagnosticLog.Write(context, ex);
-        LocalDialog.Show(context + (ex is MeetlingApiException || ex is InvalidOperationException ? "\n" + ex.Message : ""));
+        LocalDialog.Show(context + (ex is HttpRequestException || ex is TaskCanceledException ? "\n" + TransportFailure.UserMessage(ex) : ex is MeetlingApiException || ex is InvalidOperationException ? "\n" + ex.Message : ""));
     });
     public void Dispose() { disposed = true; Invalidate(); lifetime.Cancel(); /* dispatcher remains until queued continuations drain; no Office calls survive the epoch. */ }
 }

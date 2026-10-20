@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +28,31 @@ internal static class Program
     {
         try
         {
+            var inheritedProtocol = ServicePointManager.SecurityProtocol;
+            using (var transport = MeetlingApiClient.CreateTransportHandler())
+            {
+                Check(!transport.AllowAutoRedirect && !transport.UseCookies, "transport isolation");
+                Check(transport.ServerCertificateCustomValidationCallback == null, "normal certificate validation retained");
+                Check(ServicePointManager.SecurityProtocol == inheritedProtocol, "global host settings unchanged");
+            }
+            var failures = new[]
+            {
+                new { Error = new HttpRequestException("secret URL", new AuthenticationException("secret certificate")), Category = "tls" },
+                new { Error = new HttpRequestException("secret token", new WebException("secret URL", WebExceptionStatus.SecureChannelFailure)), Category = "tls" },
+                new { Error = new HttpRequestException("secret token", new WebException("secret URL", WebExceptionStatus.TrustFailure)), Category = "tls" },
+                new { Error = new HttpRequestException("secret token", new WebException("secret URL", WebExceptionStatus.NameResolutionFailure)), Category = "dns" },
+                new { Error = new HttpRequestException("secret token", new WebException("secret URL", WebExceptionStatus.ProxyNameResolutionFailure)), Category = "proxy" },
+                new { Error = new HttpRequestException("secret token", new WebException("secret URL", WebExceptionStatus.Timeout)), Category = "timeout" },
+                new { Error = new HttpRequestException("secret token", new SocketException((int)SocketError.HostNotFound)), Category = "dns" }
+            };
+            foreach (var failure in failures)
+            {
+                Check(TransportFailure.Category(failure.Error) == failure.Category, "nested network cause classified");
+                Check(!TransportFailure.SafeDetails(failure.Error).Contains("secret"), "no sensitive exception messages logged");
+                Check(!TransportFailure.UserMessage(failure.Error).Contains("secret"), "no sensitive exception messages displayed");
+            }
+            Check(TransportFailure.Category(new TaskCanceledException("secret")) == "timeout", "transport timeout classification");
+            Check(TransportFailure.SafeDetails(failures[1].Error).Contains("WebStatus=SecureChannelFailure"), "WebException status preserved");
             var settings = new MeetlingSettings { BaseUrl = "https://HOST.example/meetling" };
             Check(settings.Installation == "https://host.example/meetling/", "normalization");
             Check(settings.Endpoint("server").AbsoluteUri == "https://host.example/meetling/room/outlook/plugin/server", "installation subpath");
@@ -36,7 +63,7 @@ internal static class Program
             {
                 using (var request = MeetlingApiClient.BuildRequest(settings, action, "opaque-token", "9007199254740993"))
                 {
-                    Check(request.Headers.GetValues(action == "create" ? "token" : "Authorization").Single() == "opaque-token", "exact header");
+                    Check(request.Headers.GetValues(action == "create" ? "token" : "Authorization").Single() == (action == "create" ? "opaque-token" : "Bearer opaque-token"), "exact endpoint-specific authorization header");
                     Check(!request.Headers.Contains(action == "create" ? "Authorization" : "token"), "separate header");
                     Check(request.Method == (action == "create" ? HttpMethod.Post : HttpMethod.Get), "method convention");
                     if (action == "create") { Check(await request.Content.ReadAsStringAsync() == "server_id=9007199254740993", "only server ID, no Outlook content"); Check(request.Content.Headers.ContentType.MediaType == "application/x-www-form-urlencoded", "form"); }
@@ -86,6 +113,15 @@ internal static class Program
                 handler.Respond = _ => Task.FromResult(Json("{}")); await RejectAsync(() => api.LogoutAsync(settings, "token", CancellationToken.None), "unconfirmed logout");
                 handler.Respond = _ => Task.FromResult(Json("{\"error\":true,\"reason\":\"No user loged found\"}")); await RejectAsync(() => api.LogoutAsync(settings, "token", CancellationToken.None), "invalid logout token");
                 foreach (var status in new[] { HttpStatusCode.Redirect, HttpStatusCode.Unauthorized, HttpStatusCode.InternalServerError }) { handler.Respond = _ => Task.FromResult(Json("[]", status)); await RejectAsync(() => api.GetServersAsync(settings, "token", CancellationToken.None), "HTTP status first"); }
+                var diagnostics = new List<string>();
+                var diagnosedApi = new MeetlingApiClient(http, diagnostics.Add);
+                handler.Respond = _ => Task.FromResult(Json("[]"));
+                Check((await diagnosedApi.GetServersAsync(settings, "secret-token", CancellationToken.None)).Count == 0, "empty list is successful response");
+                Check(diagnostics.Any(line => line == "ApiRequest servers HTTP=200") && diagnostics.Any(line => line == "ApiRequest servers parsed count=0"), "server response status and count logged");
+                handler.Respond = _ => throw new HttpRequestException("secret URL", new WebException("secret token", WebExceptionStatus.SecureChannelFailure));
+                await RejectAsync(() => diagnosedApi.GetServersAsync(settings, "secret-token", CancellationToken.None), "TLS failure retains request failure");
+                Check(diagnostics.Any(line => line.Contains("Category=tls") && line.Contains("SecureChannelFailure")), "TLS cause in request diagnosis");
+                Check(diagnostics.All(line => !line.Contains("secret")), "request diagnostics contain no secrets");
                 int before = handler.Calls; handler.Respond = _ => throw new TaskCanceledException(); await RejectAsync(() => api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None), "timeout"); Check(handler.Calls == before + 1, "no retry");
                 handler.Respond = _ => throw new HttpRequestException(); await RejectAsync(() => api.LogoutAsync(settings, "token", CancellationToken.None), "network logout");
             }
