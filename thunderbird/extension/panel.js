@@ -2,8 +2,9 @@
 (() => {
   const $ = id => document.getElementById(id);
   const target = new URL(location.href).searchParams.get("target") || "";
-  const operationId = crypto.randomUUID();
-  let state, running = false, loaded = false, hadAuth = false;
+  const operationId = sessionStorage.getItem("meetling-operation") || crypto.randomUUID();
+  sessionStorage.setItem("meetling-operation", operationId);
+  let state, running = false, loaded = false;
   const message = async (action, values = {}) => {
     const result = await browser.runtime.sendMessage({ action, target, operationId, ...values });
     if (!result?.ok) throw new Error(result?.error || "Meetling ist nicht erreichbar.");
@@ -50,15 +51,14 @@
     state = await message("state");
     $("name").textContent = state.name ? "Angemeldet als " + state.name : "Noch nicht angemeldet";
     $("login").hidden = !!state.name || !!state.login; $("logout").hidden = !state.name; $("cancel-login").hidden = !state.login;
-    if (!hadAuth && state.name && !loaded && !running && !state.result) { status(""); await loadServers(); }
-    hadAuth = !!state.name;
+    if (state.name && !loaded && !running && !state.result) { status(""); await loadServers(); }
     if (!state.name) { $("selection").hidden = true; loaded = false; }
     if (state.login) status(state.login);
     if (state.result && $("result").hidden) result(state.result, false);
   }
   $("config-form").addEventListener("submit", event => { event.preventDefault(); action(async () => {
     const config = JSON.parse($("config-json").value); config.baseUrl = $("base-url").value;
-    await message("save", { config }); loaded = false; hadAuth = false; status("Einstellungen gespeichert."); await update();
+    await message("save", { config }); loaded = false; status("Einstellungen gespeichert."); await update();
   }); });
   $("import").addEventListener("change", () => action(async () => {
     const file = $("import").files[0]; if (!file) return; if (file.size > 65536) throw new Error("Konfigurationsdatei zu groß.");

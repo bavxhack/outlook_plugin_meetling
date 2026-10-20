@@ -43,6 +43,7 @@ var smoke = class extends ExtensionCommon.ExtensionAPI {
       },
       async finish(report) {
         const outcome={...JSON.parse(report),version:Services.appinfo.version};
+        if (!outcome.success) outcome.console=Services.console.getMessageArray().map(m=>m.message).slice(-30);
         await IOUtils.writeUTF8(Services.env.get("MEETLING_SMOKE_RESULT"),JSON.stringify(outcome,null,2));
         Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
       }

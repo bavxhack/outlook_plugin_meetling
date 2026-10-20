@@ -12,6 +12,7 @@ var meetlingHost = class extends ExtensionCommon.ExtensionAPI {
       !win.calendarItem.calendar?.readOnly && win.document.getElementById("item-description")?.getHTMLEditor;
     const capture = win => {
       if (!ready(win)) throw new Error("Bitte einen bearbeitbaren Kalendertermin öffnen.");
+      for (const [id, target] of targets) if (target.win === win && target.item === win.calendarItem) return id;
       const id = Services.uuid.generateUUID().toString();
       targets.set(id, { win, item: win.calendarItem, title: win.document.getElementById("item-title").value, isNew: win.mode === "new" });
       return id;
