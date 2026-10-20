@@ -136,4 +136,4 @@ Speicherung oder Sendung und keine Änderung des funktionierenden API-Vertrags.
 
 ## 1.3.6 – Fensterhöhe der Serverauswahl
 
-Die Höhe wird nach der DPI-/Schriftskalierung aus den tatsächlichen Buttonhöhen, Abständen und umgebrochenen Beschriftungen berechnet und an der Bildschirmarbeitsfläche begrenzt. Der Windows-Smoke prüft drei vollständig sichtbare Server-Buttons bei 100, 150 und 200 Prozent Layoutskalierung. Reales Outlook-DPI-Verhalten bleibt manuell zu prüfen.
+Die Höhe wird nach der DPI-/Schriftskalierung aus den tatsächlichen Buttonhöhen, Abständen und umgebrochenen Beschriftungen berechnet und an der Bildschirmarbeitsfläche begrenzt. Der Windows-Smoke prüft drei vollständig sichtbare Server-Buttons oder die erreichte Bildschirmhöhenbegrenzung bei 100, 150 und 200 Prozent Layoutskalierung. Reales Outlook-DPI-Verhalten bleibt manuell zu prüfen.

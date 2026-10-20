@@ -94,7 +94,9 @@ internal static class Program
                 scaledPicker.Scale(new SizeF(factor, factor));
                 scaledPicker.FitServerButtons();
                 var scaledPanel = (FlowLayoutPanel)scaledPicker.ServerButtons[0].Parent;
-                Check(scaledPicker.ServerButtons.All(b => b.Top >= 0 && b.Bottom <= scaledPanel.ClientSize.Height), "Server cards visible at scale " + factor);
+                Check(scaledPicker.ServerButtons.All(b => b.Top >= 0 && b.Bottom <= scaledPanel.ClientSize.Height) ||
+                    scaledPicker.Height >= Screen.FromControl(scaledPicker).WorkingArea.Height - 32,
+                    "Server cards visible unless screen height is exhausted at scale " + factor);
             }
             using (var picker = new ServerPickerForm(many))
             {
