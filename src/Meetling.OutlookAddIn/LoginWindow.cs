@@ -19,6 +19,8 @@ internal sealed class LoginWindow : Form
     private readonly Label status = new Label { Dock = DockStyle.Fill, UseMnemonic = false, Text = "Browser wird gestartet …" };
     private readonly Button returnToMeetling = new Button { Dock = DockStyle.Right, Width = 195, Text = "Zurück zu Meetling", Enabled = false };
     private int navigations, responseErrors;
+    private bool httpsReturnUsed;
+    private readonly UiDispatcher dispatcher = new UiDispatcher();
     private readonly CancellationToken ct;
     private readonly TaskCompletionSource<LoginResult?> completion = new TaskCompletionSource<LoginResult?>();
     private readonly System.Windows.Forms.Timer timeout = new System.Windows.Forms.Timer { Interval = 300000 };
@@ -77,6 +79,18 @@ internal sealed class LoginWindow : Form
             string stage = BrowserNavigationPolicy.Classify(expected, e.Uri);
             e.Cancel = !BrowserNavigationPolicy.IsAllowed(e.Uri);
             if (++navigations <= 200) Trace("navigation " + stage + (e.IsRedirected ? " redirected" : ""));
+            if (e.Cancel)
+            {
+                Trace("navigation-blocked reason=" + BrowserNavigationPolicy.BlockReason(e.Uri));
+                if (!httpsReturnUsed && e.IsRedirected && BrowserNavigationPolicy.CanReturnViaHttps(expected, e.Uri))
+                {
+                    httpsReturnUsed = true;
+                    Trace("return-to-configured-https-endpoint");
+                    SetStatus("Rückleitung zum konfigurierten HTTPS-Anmeldeendpunkt …");
+                    view.BeginInvoke((Action)(() => { if (!finished && !ct.IsCancellationRequested && !view.IsDisposed) view.CoreWebView2.Navigate(expected.AbsoluteUri); }));
+                    return;
+                }
+            }
             SetStatus(e.Cancel ? "Eine nicht unterstützte Weiterleitung wurde blockiert. Bitte Diagnose prüfen." :
                 stage == "plugin-login" ? "Meetling-Antwort wird erwartet …" : "SSO-Anmeldung läuft. Nach erfolgreicher MFA bei Bedarf „Zurück zu Meetling“ wählen.");
         };
@@ -89,6 +103,12 @@ internal sealed class LoginWindow : Form
                 SetStatus("Anmeldeseite konnte nicht geladen werden (" + e.WebErrorStatus + "). Bitte Diagnose prüfen.");
             }
             else if (navigations <= 200) Trace("navigation-completed");
+        };
+        core.DownloadStarting += (s,e) =>
+        {
+            // A token response must never become a plaintext file on disk.
+            e.Cancel = true; e.Handled = true;
+            if (!finished) { Trace("download-blocked"); SetStatus("Der Browser wollte eine Datei herunterladen. Anmeldung bleibt geöffnet; bitte Diagnose prüfen."); }
         };
         core.ProcessFailed += (s,e) => { if (!finished) { Trace("browser-process-failed " + e.ProcessFailedKind); Fail("Der Anmeldebrowser wurde unerwartet beendet. Bitte erneut anmelden."); } };
         core.WebResourceResponseReceived += Response;
@@ -136,24 +156,53 @@ internal sealed class LoginWindow : Form
         Trace("endpoint-response HTTP=" + e.Response.StatusCode);
         if (e.Response.StatusCode >= 300 && e.Response.StatusCode < 400) return; // SSO redirects are allowed in browser only.
         reading = true;
+        string phase = "response-headers";
         try
         {
             if (e.Response.StatusCode != 200) throw new MeetlingApiException("Der Login-Endpunkt meldet einen HTTP-Fehler.");
-            var contentType = e.Response.Headers.GetHeader("Content-Type");
-            if (contentType.IndexOf("application/json", StringComparison.OrdinalIgnoreCase) < 0) { Trace("endpoint-html-or-non-json"); SetStatus("Der Endpunkt zeigt eine Webseite. Anmeldung abschließen, danach bei Bedarf „Zurück zu Meetling“ wählen."); return; } // Installation may show its own HTML sign-in UI.
-            using (var stream = await e.Response.GetContentAsync())
-            using (var reader = new StreamReader(stream))
+            if (!e.Response.Headers.Contains("Content-Type"))
             {
-                string json = await reader.ReadToEndAsync();
-                if (finished || ct.IsCancellationRequested) return;
-                var login = MeetlingApiClient.ParseLogin(json);
-                Trace("token-response-validated"); finished = true; completion.TrySetResult(login); Close();
+                Trace("endpoint-missing-content-type");
+                SetStatus("Die Login-Antwort enthält keinen Inhaltstyp. Bitte Diagnose prüfen.");
+                return;
             }
+            var contentType = e.Response.Headers.GetHeader("Content-Type");
+            if (contentType.IndexOf("application/json", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                Trace("endpoint-html-or-non-json");
+                SetStatus("Der Endpunkt zeigt eine Webseite. Anmeldung abschließen, danach bei Bedarf „Zurück zu Meetling“ wählen.");
+                return;
+            }
+            phase = "response-stream";
+            var stream = await e.Response.GetContentAsync();
+            phase = "response-read-and-validate";
+            var login = await BrowserLoginResponse.ReadAsync(stream, ct);
+            await dispatcher.InvokeAsync(() =>
+            {
+                if (finished || ct.IsCancellationRequested) return;
+                if (login == null)
+                {
+                    Trace("response-stream-unavailable");
+                    SetStatus("Der Browser liefert keinen lesbaren Antwortstream. Nach abgeschlossener Anmeldung „Zurück zu Meetling“ wählen.");
+                    return;
+                }
+                Trace("token-response-validated"); finished = true; completion.TrySetResult(login); Close();
+            });
         }
-        catch (MeetlingApiException ex) { if (!finished) Fail(ex.Reason == "No user loged in" ? "Die Installation liefert keinen angemeldeten Benutzer. Der Server muss einen Anmeldeweg mit Rückkehr zum Login-Endpunkt bereitstellen." : ex.Message); }
-        catch (Exception) { if (!finished) Fail("Die Login-Antwort konnte nicht sicher übernommen werden."); }
-        finally { reading = false; }
+        catch (MeetlingApiException ex)
+        {
+            await dispatcher.InvokeAsync(() => { if (!finished && !ct.IsCancellationRequested) Fail(ex.Reason == "No user loged in" ? "Die Installation liefert keinen angemeldeten Benutzer. Der Server muss einen Anmeldeweg mit Rückkehr zum Login-Endpunkt bereitstellen." : ex.Message); });
+        }
+        catch (Exception ex)
+        {
+            // Runtime/stream failures must not discard the authenticated browser session.
+            // Log only a fixed phase, exception type and HRESULT, never exception text.
+            DiagnosticLog.Write("BrowserLogin " + phase + " failed", ex);
+            if (!finished && !ct.IsCancellationRequested)
+                await dispatcher.InvokeAsync(() => SetStatus("Login-Antwort nicht lesbar (" + phase + ", 0x" + ex.HResult.ToString("X8") + "). Sitzung bleibt geöffnet; „Zurück zu Meetling“ erneut versuchen."));
+        }
+        finally { await dispatcher.InvokeAsync(() => { reading = false; if (finished || IsDisposed) dispatcher.Dispose(); }); }
     }
     private void Fail(string message) { if (finished) return; Trace("failed"); finished = true; MessageBox.Show(this, message, "Meetling"); completion.TrySetResult(null); Close(); }
-    protected override void Dispose(bool disposing) { if (disposing) { foreach (var popup in popups.ToArray()) { popup.Close(); popup.Dispose(); } popups.Clear(); timeout.Dispose(); browser.Dispose(); } base.Dispose(disposing); }
+    protected override void Dispose(bool disposing) { if (disposing) { foreach (var popup in popups.ToArray()) { popup.Close(); popup.Dispose(); } popups.Clear(); timeout.Dispose(); browser.Dispose(); if (!reading) dispatcher.Dispose(); } base.Dispose(disposing); }
 }

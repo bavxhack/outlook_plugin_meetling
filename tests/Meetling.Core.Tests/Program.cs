@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Meetling.Core;
@@ -59,6 +60,15 @@ internal static class Program
             foreach (var url in new[] { "http://sso.example/otp", "javascript:alert(1)", "file:///secret", "data:text/html,secret", "https://user:password@sso.example/", "not a URL" }) Check(!BrowserNavigationPolicy.IsAllowed(url), "unsupported browser navigation");
             Check(BrowserNavigationPolicy.Classify(settings.Endpoint(settings.Endpoints.Login), "https://sso.example/otp?session=secret") == "identity-provider", "safe SSO diagnosis excludes session data");
             Check(BrowserNavigationPolicy.Classify(settings.Endpoint(settings.Endpoints.Login), "https://host.example/callback?code=secret") == "installation", "safe callback diagnosis excludes codes");
+            var configuredLogin = settings.Endpoint(settings.Endpoints.Login);
+            Check(BrowserNavigationPolicy.CanReturnViaHttps(configuredLogin, "http://host.example/meetling/room/outlook/plugin/outlooklogin"), "HTTP redirect replaced with exact configured HTTPS login");
+            foreach (var bad in new[] { "http://other.example/meetling/room/outlook/plugin/outlooklogin", "http://host.example/other", "http://host.example:8080/meetling/room/outlook/plugin/outlooklogin", "http://host.example/meetling/room/outlook/plugin/outlooklogin?code=secret", "http://host.example/meetling/room/outlook/plugin/outlooklogin#secret", "http://user:secret@host.example/meetling/room/outlook/plugin/outlooklogin", "https://host.example/meetling/room/outlook/plugin/outlooklogin" }) Check(!BrowserNavigationPolicy.CanReturnViaHttps(configuredLogin, bad), "no alternate or parameterized HTTP recovery");
+            Check(BrowserNavigationPolicy.BlockReason("http://host.example/callback?code=secret") == "http", "blocked scheme diagnosis excludes parameters");
+            Check(BrowserNavigationPolicy.BlockReason("data:application/json,secret") == "data", "data blocked without content in diagnosis");
+            Check(await BrowserLoginResponse.ReadAsync(null, CancellationToken.None) == null, "missing browser stream recoverable");
+            using (var bytes = new MemoryStream(Encoding.UTF8.GetBytes("{\"token\":\"opaque\",\"name\":\"Erika\"}"))) Check((await BrowserLoginResponse.ReadAsync(bytes, CancellationToken.None))!.Token == "opaque", "browser response stream validation");
+            using (var bytes = new MemoryStream(Encoding.UTF8.GetBytes("<html>not JSON</html>"))) await RejectAsync(() => BrowserLoginResponse.ReadAsync(bytes, CancellationToken.None), "invalid browser response rejected");
+            using (var cancellation = new CancellationTokenSource()) { cancellation.Cancel(); await RejectAsync(() => BrowserLoginResponse.ReadAsync(null, cancellation.Token), "late browser response rejected"); }
             var expected = settings.Endpoint(settings.Endpoints.Login);
             Check(expected.AbsoluteUri == "https://host.example/meetling/room/outlook/plugin/outlooklogin", "default Outlook login endpoint");
             Check(SettingsValidator.IsExpectedLogin(expected, expected.AbsoluteUri), "exact login");

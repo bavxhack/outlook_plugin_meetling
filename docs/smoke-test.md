@@ -18,6 +18,10 @@ Keine Secrets protokollieren.
    SSO-Popups mit gleichem Browserkontext, automatisches window.close und
    Schließen aller Popups bei Abbruch/Timeout/Shutdown prüfen. Bleibt die Rückkehr
    nach erfolgreich abgeschlossenem OTP aus, „Zurück zu Meetling“ testen.
+   Antwortstream-Fehler dürfen die Sitzung nicht schließen; nach Erfolg erneut
+   den exakten Login-Endpunkt prüfen, ohne erneuten SSO-Start zu erzwingen.
+   Downloads dürfen keine Token-Datei erzeugen. Nur parameterlose HTTP-Rückleitung
+   zum exakten Login darf einmalig auf konfiguriertes HTTPS zurückgeführt werden.
    BrowserLogin-Diagnose auf Kategorien/Statuscodes ohne URLs, OTP oder Codes prüfen.
    Funktioniert der gleiche Endpunkt im normalen Edge, aber nicht im WebView,
    den letzten BrowserLogin-Schritt und gegebenenfalls WebErrorStatus festhalten.

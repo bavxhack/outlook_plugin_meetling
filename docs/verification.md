@@ -42,3 +42,20 @@ zusätzlicher SSO-Fenster gefunden. Ergänzt wurden SSO-Popups im gleichen
 WebView2-Kontext, sichere Navigationsdiagnose und eine explizite Rückkehr zum
 konfigurierten Endpunkt. Diese Änderungen sind kein Nachweis einer behobenen
 Live-OTP-Störung. Erneuter Versuch mit neuem Paket erforderlich.
+
+## Weiteres Live-Log und Korrektur (Version 1.3.1)
+
+Nutzerlog zeigt nach OTP: installation redirected → blocked redirected →
+endpoint-response HTTP=200 → failed. Daraus ist weder ein konkretes Zielschema
+noch der Exceptiontyp ablesbar. Antwortstream wurde bisher ungeprüft an
+StreamReader übergeben; unerwartete Fehler beendeten die Browsersitzung ohne
+technische Fehlerdiagnose. Fehlende Streams werden nun explizit behandelt,
+Laufzeitfehler erhalten die Sitzung, UI-Abschluss wird explizit dispatcht,
+Fehlerphase/Exceptiontyp/HRESULT und feste Sperrgründe werden protokolliert.
+
+Zusätzlich wird ausschließlich eine parameterlose HTTP-Rückleitung auf exakt
+den konfigurierten Login-Host/-Pfad durch einen einmaligen Aufruf des bekannten
+HTTPS-Endpunkts ersetzt; HTTP wird dabei niemals angefragt. Die tatsächliche
+Sperrursache im Nutzerlog bleibt bis zum neuen Versuch offen. Regressionstests
+prüfen fehlende/valide/ungültige/abgebrochene Antwortstreams und die engen
+Grenzen der HTTPS-Rückkehr. Keine erfolgreiche Live-Anmeldung behauptet.

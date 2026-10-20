@@ -83,6 +83,31 @@ JWT-/Längen-/Ablaufzeitmodell, kein Refresh. Der Anzeigename ist keine Benutzer
 Ein gespeichertes Token wird beim Outlook-Start geladen, erst beim nächsten
 API-Aufruf geprüft und öffnet keinen Browser. Bei ungültigem Token erneut anmelden.
 
+## Antwortübernahme nach MFA (Version 1.3.1)
+
+HTTP 200 bestätigt noch keine erfolgreiche Tokenübernahme. Der Browser kann
+bei abgebrochener Navigation oder Download keinen Antwortstream liefern.
+Fehlender Stream und Laufzeitfehler schließen das Anmeldefenster nicht mehr;
+die bestehende Sitzung bleibt für „Zurück zu Meetling“ erhalten. Es erfolgen
+keine automatischen Wiederholungen. Nur die validierte JSON-Antwort vom exakten
+HTTPS-Endpunkt kann eine Anmeldung abschließen. UI-Änderungen nach asynchronem
+Lesen laufen über den UI-Dispatcher. Downloads im Anmeldefenster werden
+abgebrochen, damit eine Tokenantwort nicht als unverschlüsselte Datei landet.
+
+BrowserLogin protokolliert jetzt zusätzlich die feste Fehlerphase,
+Exceptiontyp/HRESULT und einen festen Sperrgrund (z. B. http, data, blob,
+userinfo). Es werden weiterhin keine Adressen oder Antwortinhalte ausgegeben.
+
+Ein eng begrenzter Rückleitungsfall wird behandelt: Leitet die Installation
+auf eine HTTP-Adresse mit exakt demselben Host und demselben Login-Pfad wie die
+konfigurierte HTTPS-Adresse zurück, ohne Query, Fragment, Zugangsdaten oder
+abweichenden Port, wird HTTP weiterhin blockiert. Stattdessen wird einmalig
+der bereits konfigurierte HTTPS-Login-Endpunkt im selben Browser aufgerufen.
+Parameter werden nicht übernommen. Andere HTTP-Rückleitungen bleiben blockiert;
+es gibt keine pauschale HTTP-Freigabe und keine Endlosschleife. Dies ist eine
+abgesicherte Behandlung eines möglichen Proxy-/Scheme-Problems, kein Nachweis,
+dass genau dieses Problem beim gemeldeten Live-Versuch vorlag.
+
 ## HTTP und Konferenz
 
 Konvention: GET Login (Browser), GET Server und Logout (HttpClient), POST
