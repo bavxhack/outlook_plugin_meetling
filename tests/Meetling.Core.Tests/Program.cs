@@ -116,9 +116,23 @@ internal static class Program
             var handler = new Handler(); using (var http = new HttpClient(handler))
             {
                 var api = new MeetlingApiClient(http);
-                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/a%2Fb?x=1\",\"title\":\"generated\"}]"));
+                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/a%2Fb?x=1\",\"title\":\"generated\",\"id\":9007199254740993}]"));
                 var conference = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
                 Check(conference.Url == "https://host.example/a%2Fb?x=1", "URL unchanged");
+                Check(conference.ConferenceId == "9007199254740993", "conference ID preserved without rounding");
+                Check(conference.ModeratorEditUrl == "https://host.example/meetling/room/dashboard?editConference_id=9007199254740993", "edit link uses installation subpath and returned conference ID");
+                Check(conference.BodyText.IndexOf(conference.Url, StringComparison.Ordinal) < conference.BodyText.IndexOf(conference.ModeratorEditUrl!, StringComparison.Ordinal) && conference.BodyText.Contains("nur für Moderatoren"), "moderator link below participant link and labelled");
+                foreach (var id in new[] { "null", "0", "-1", "1.5", "\"\"", "\"bad&injected=1\"", "true", "{}" })
+                {
+                    handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"id\":" + id + "}]"));
+                    var incomplete = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
+                    Check(incomplete.Url == "https://host.example/room" && incomplete.ModeratorEditUrl == null, "invalid optional ID cannot fabricate edit link or discard created room");
+                }
+                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"id\":\"42\"}]"));
+                Check((await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None)).ModeratorEditUrl!.EndsWith("editConference_id=42", StringComparison.Ordinal), "digit string ID adapter tested");
+                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\"}]"));
+                var legacyConference = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
+                Check(legacyConference.ModeratorEditUrl == null && !legacyConference.BodyText.Contains("dashboard"), "missing ID retains participant link without invented ID");
                 foreach (var bad in new[] { "{}", "[]", "[{},{}]", "[{\"url\":\"http://host/a\",\"title\":\"a\"}]", "[{\"url\":\"https://host/a\",\"title\":\"\"}]" }) { handler.Respond = _ => Task.FromResult(Json(bad)); await RejectAsync(() => api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None), "invalid conference"); }
                 handler.Respond = _ => Task.FromResult(Json("{\"token\":null}")); await api.LogoutAsync(settings, "token", CancellationToken.None); checks++;
                 handler.Respond = _ => Task.FromResult(Json("{}")); await RejectAsync(() => api.LogoutAsync(settings, "token", CancellationToken.None), "unconfirmed logout");

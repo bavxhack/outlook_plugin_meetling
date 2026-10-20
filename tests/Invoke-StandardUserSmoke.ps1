@@ -29,6 +29,8 @@ try {
     Get-Content "$root\stdout.log"
     Get-Content "$root\stderr.log"
     if (Test-Path "$root\COM-diagnosis.txt") { Get-Content "$root\COM-diagnosis.txt" }
+    $preview = Join-Path $root 'server-picker-preview.png'
+    if (Test-Path $preview) { Copy-Item $preview (Join-Path (Split-Path $PackageDirectory -Parent) "server-picker-$Architecture.png") -Force }
     if ($child.ExitCode -ne 0) { throw "Standard-user COM smoke test failed: $($child.ExitCode)" }
 } finally {
     Remove-LocalUser -Name $userName -ErrorAction SilentlyContinue

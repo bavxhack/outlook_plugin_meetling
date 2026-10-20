@@ -162,6 +162,7 @@ jobs:
           path: |
             artifacts/Meetling-OutlookAddIn-${{ matrix.architecture }}/
             artifacts/Meetling-OutlookAddIn-${{ matrix.architecture }}.zip
+            artifacts/server-picker-${{ matrix.architecture }}.png
           if-no-files-found: error
           retention-days: 30
 

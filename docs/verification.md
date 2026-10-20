@@ -113,3 +113,23 @@ getestet. Benutzer- und Verwaltungsdateien bleiben beim Laden bytegleich;
 benutzerdefinierte Präfixe bleiben erhalten, beschädigte Vorgaben bleiben
 blockierend. TLS-Korrektur aus 1.3.3 wird weiterverwendet. Ein erfolgreicher
 Serverabruf/Erstellung mit den neuen Routen ist noch live zu bestätigen.
+
+## Server-Schaltflächen und Moderator-Bearbeitungslink (1.3.5)
+
+Der Nutzer bestätigt den bisherigen End-to-End-Ablauf als funktionierend.
+Neue Anforderungen: native Server-Schaltflächen im Office-Desktopstil und ein
+zusätzlicher Moderator-Bearbeitungslink aus dem neuen Create-Antwortfeld id.
+Implementiert sind scrollbare Schaltflächen, korrekte ID-Zuordnung bei gleichen
+Namen/Sortierung, Fokus-/Hover-/Kontrastzustände sowie der Editor-Link unterhalb
+der Teilnahme-URL. Die aus der Antwort gelesene ID wird nicht aus anderen Feldern
+abgeleitet. Große Integer-IDs bleiben exakt; Ziffernstrings sind getestete
+Adaptertoleranz. Fehlende/ungültige IDs verlieren keinen bereits erstellten Raum
+und lösen keine Wiederholung aus. Text und beide Links sind manuell übernehmbar.
+
+Core-Tests prüfen ID/URL-Zuordnung, Unterpfad, Linkreihenfolge, Moderatorhinweis,
+große Zahlen, Ziffernstrings und fehlerhafte/fehlende IDs. Windows-Smoke prüft die
+Schaltflächen, Duplikatbeschriftungen, fehlende Vorwahl und tatsächliches
+Click-Ereignis mit korrekter ID. Ein gerendertes server-picker-<Bitness>.png wird
+mit den Actions-Artefakten geliefert. Native Word-Hyperlinks und DPI-/Outlook-
+Darstellung bleiben auf dem Nutzerrechner manuell abzunehmen. Keine automatische
+Speicherung oder Sendung und keine Änderung des funktionierenden API-Vertrags.

@@ -115,24 +115,28 @@ internal sealed class PluginController : IDisposable
             using (var http = MeetlingApiClient.CreateHttpClient(settings)) result = await new MeetlingApiClient(http, DiagnosticLog.WriteInfo).CreateConferenceAsync(settings, token, server.Id, ct);
             await ui.InvokeAsync(() =>
             {
-                if (!epoch.IsCurrent(version)) { if (!disposed) ShowLink(result.Url); return; }
-                try { target.Apply(result); SetStatus("Angemeldet als " + login!.Name); }
-                catch (Exception) { ShowLink(result.Url); }
+                if (!epoch.IsCurrent(version)) { if (!disposed) ShowLink(result); return; }
+                try
+                {
+                    target.Apply(result); SetStatus("Angemeldet als " + login!.Name);
+                    if (result.ModeratorEditUrl == null) LocalDialog.Show("Die Konferenz wurde eingefügt. Der Server hat keine gültige Konferenz-ID geliefert; der Bearbeitungslink konnte deshalb nicht ergänzt werden. Es wurde kein weiterer Raum erstellt.");
+                }
+                catch (Exception) { ShowLink(result); }
             });
         }
         catch (Exception ex)
         {
-            if (result != null) await ui.InvokeAsync(() => { if (!disposed) ShowLink(result.Url); });
+            if (result != null) await ui.InvokeAsync(() => { if (!disposed) ShowLink(result); });
             else await Error(version, ex, requested ? "Erstellung fehlgeschlagen oder Ausgang unklar. Der Raum kann bereits existieren. Kein automatischer Wiederholungsversuch." : "Konferenz konnte nicht vorbereitet werden.");
         }
         finally { await ui.InvokeAsync(() => { target?.Dispose(); if (epoch.IsCurrent(version)) { busy = false; if (Status == "Server werden geladen." || Status == "Konferenz wird erstellt.") SetStatus(login == null ? "Nicht angemeldet." : "Angemeldet als " + login.Name); Changed?.Invoke(); } }); }
     }
-    private static void ShowLink(string url)
+    private static void ShowLink(ConferenceResult conference)
     {
-        using (var form = new Form { Text = "Konferenz erstellt – Link manuell übernehmen", Width = 700, Height = 160 })
+        using (var form = new Form { Text = "Konferenz erstellt – Links manuell übernehmen", Width = 760, Height = 300 })
         {
-            form.Controls.Add(new TextBox { Text = url, ReadOnly = true, Dock = DockStyle.Top });
-            form.Controls.Add(new Label { Text = "Outlook-Einfügung fehlgeschlagen. Bitte diesen Link manuell übernehmen. Es wird kein weiterer Raum erstellt.", Dock = DockStyle.Bottom, Height = 60 }); form.ShowDialog();
+            form.Controls.Add(new TextBox { Text = conference.BodyText.Replace("\r", Environment.NewLine), ReadOnly = true, Multiline = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill });
+            form.Controls.Add(new Label { Text = "Outlook-Einfügung fehlgeschlagen. Bitte diese Links manuell übernehmen. Es wird kein weiterer Raum erstellt.", Dock = DockStyle.Bottom, Height = 60 }); form.ShowDialog();
         }
     }
     internal async Task Logout()

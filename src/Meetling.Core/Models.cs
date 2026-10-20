@@ -53,9 +53,15 @@ public sealed class LoginResult
 }
 public sealed class ConferenceResult
 {
-    public ConferenceResult(string url, string title) { Url = url; Title = title; }
+    public ConferenceResult(string url, string title, string? conferenceId = null, string? moderatorEditUrl = null)
+    { Url = url; Title = title; ConferenceId = conferenceId; ModeratorEditUrl = moderatorEditUrl; }
     public string Url { get; }
     public string Title { get; }
+    public string? ConferenceId { get; }
+    public string? ModeratorEditUrl { get; }
+    // Word uses a single carriage return as the paragraph separator.
+    public string BodyText => "Meetling-Konferenz\rTeilnehmen: " + Url + "\r" +
+        (ModeratorEditUrl == null ? "" : "\rKonferenz in Meetling bearbeiten (nur für Moderatoren):\r" + ModeratorEditUrl + "\r");
 }
 public sealed class MeetlingApiException : Exception
 {

@@ -1,6 +1,10 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Reflection;
+using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using System.Xml.Linq;
 using Meetling.OutlookAddIn;
@@ -83,6 +87,22 @@ internal static class Program
             Check(ServerSelection.Choose(many)?.Id == "20" && confirmations == 2, "Many servers selection");
             ServerSelection.Confirm = list => null;
             Check(ServerSelection.Choose(two) == null, "Cancel has no selected server");
+            using (var picker = new ServerPickerForm(many))
+            {
+                Check(picker.ServerButtons.Count == many.Length && picker.SelectedServer == null, "Button picker has no preselected server");
+                Check(picker.ServerButtons.All(b => b.Tag is Meetling.Core.Server && !b.UseMnemonic), "Server IDs separate from displayed text");
+                Check(picker.ServerButtons.Count(b => b.Text.Contains("Server-ID:")) == 2, "Duplicate names display IDs");
+                Check(picker.CancelButton != null && picker.AcceptButton == null, "Cancel available, no implicit server confirmation");
+                picker.CreateControl(); picker.PerformLayout();
+                using (var preview = new Bitmap(picker.Width, picker.Height))
+                {
+                    picker.DrawToBitmap(preview, new Rectangle(0, 0, preview.Width, preview.Height));
+                    if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true") preview.Save(Path.Combine(Environment.CurrentDirectory, "server-picker-preview.png"), System.Drawing.Imaging.ImageFormat.Png);
+                }
+                var chosenButton = picker.ServerButtons.Single(b => ((Meetling.Core.Server)b.Tag).Id == "20");
+                typeof(Button).GetMethod("OnClick", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(chosenButton, new object[] { EventArgs.Empty });
+                Check(picker.SelectedServer?.Id == "20" && picker.DialogResult == DialogResult.OK, "Click confirms the correct server ID after sorting");
+            }
             Check(!AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name!.StartsWith("Microsoft.Web.WebView2")), "WebView2 must remain unloaded without login click");
             // DPAPI round trip, restart reuse and installation binding (standard user).
             var tokenStore = new TokenStore();

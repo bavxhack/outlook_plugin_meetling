@@ -68,7 +68,12 @@ internal sealed class AppointmentTarget : IDisposable
             content = editor.Content;
             int end = (int)((dynamic)content).End - 1;
             range = editor.Range(end, end);
-            ((dynamic)range).InsertAfter("\r\rMeetling-Konferenz\rTeilnehmen: " + conference.Url + "\r");
+            string block = "\r\r" + conference.BodyText;
+            ((dynamic)range).InsertAfter(block);
+            // Insert fields from the end: Word hyperlink fields can shift later range positions.
+            if (conference.ModeratorEditUrl != null)
+                AddHyperlink(editor, end + block.LastIndexOf(conference.ModeratorEditUrl, StringComparison.Ordinal), conference.ModeratorEditUrl);
+            AddHyperlink(editor, end + block.IndexOf(conference.Url, StringComparison.Ordinal), conference.Url);
             dynamic properties = ((dynamic)item!).UserProperties; object? link = null;
             try { link = properties.Find(AppointmentRules.ParticipantLinkProperty, true) ?? properties.Add(AppointmentRules.ParticipantLinkProperty, Outlook.OlUserPropertyType.olText, false); ((dynamic)link).Value = conference.Url; }
             finally { Release(link); Release(properties); }
@@ -76,6 +81,17 @@ internal sealed class AppointmentTarget : IDisposable
         }
         finally { Release(range); Release(content); Release(editor); }
         // No Save or Send. Native fields and formatting remain owned by Outlook/user.
+    }
+    private static void AddHyperlink(dynamic editor, int start, string url)
+    {
+        object? anchor = null; object? links = null; object? link = null;
+        try
+        {
+            anchor = editor.Range(start, start + url.Length);
+            links = editor.Hyperlinks;
+            link = ((dynamic)links).Add(anchor, url);
+        }
+        finally { Release(link); Release(links); Release(anchor); }
     }
     public void Dispose() { Release(inspector); Release(item); inspector = null; item = null; }
     private static void Release(object? value) { if (value != null && Marshal.IsComObject(value)) Marshal.ReleaseComObject(value); }

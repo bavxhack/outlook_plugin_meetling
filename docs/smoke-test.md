@@ -53,3 +53,17 @@ Keine Secrets protokollieren.
     Erneute Anmeldung für das neue Ziel, kein Token an frühere/fremde Ziele.
 11. Für jede tatsächlich verfügbare Outlook-Architektur wiederholen und
     deinstallieren. Nicht vorhandene Architekturen als ungetestet markieren.
+
+## Ergänzung 1.3.5
+
+- Zwei und mehrere Server: große Schaltflächen anklicken, gleiche Namen mit IDs,
+  lange Namen/Tooltip, Tab/Enter/Leertaste, Escape/Abbrechen und Fensterschließen
+  prüfen. Scrollen, Größenänderung, 125/150/200 % DPI und Kontrastmodus prüfen.
+- Nach Erstellung: Teilnahme-Link und darunter „Konferenz in Meetling bearbeiten
+  (nur für Moderatoren)“ mit /room/dashboard?editConference_id=<Response-ID>.
+  Beide Links tatsächlich anklicken; URL muss zur erstellten Konferenz passen.
+- Bestehende HTML-/RTF-Termine und Mailentwürfe: Formatierung, eigene Felder und
+  vorherigen Text erhalten. Speichern/Sendung bleiben ausschließlich Benutzeraktion.
+- Fehlende ID simulieren: Teilnahme-Link bleibt nutzbar, Hinweis statt erfundener
+  Bearbeitungsadresse, kein zweiter Raum. Manueller Übernahmedialog zeigt beide
+  verfügbaren Links. Moderatorberechtigung serverseitig prüfen.

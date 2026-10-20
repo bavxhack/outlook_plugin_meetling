@@ -164,6 +164,15 @@ Header nur mit dem einzelnen Request. TLS-Zertifikatsprüfungen bleiben aktiv.
 Die Rohfassung der Dokumentation wurde wegen eines veralteten Wiki-Web-Caches
 zusätzlich geprüft: https://raw.githubusercontent.com/wiki/H2-invent/jitsi-admin/Outlook-Plugin-API-Doku.md
 
+Ab Version 1.3.5 zeigt die Serverauswahl große native Schaltflächen mit
+Meetling-Symbol und Office-typischer Segoe-UI-Schrift. Windows-Systemfarben,
+Kontrastmodus, Tastaturfokus, Hover-Zustände und DPI-Skalierung werden genutzt.
+Ein Klick oder die Tastaturaktivierung einer Schaltfläche bestätigt genau deren
+Server-ID; es gibt kein Dropdown und keinen vorgewählten Bestätigungsbutton.
+Mehrere Server passen in eine scrollbare Liste. Gleiche Namen erhalten die ID
+zusätzlich im Text, lange Namen einen Tooltip. Abbrechen und Schließen legen
+keine Konferenz an. Eine Server-ID bleibt unabhängig von Sortierung und Name.
+
 Servercache maximal zwei Minuten, verworfen bei Anmeldung, Logout und Reload.
 Null Server verhindern Erstellung; ein Server wird direkt verwendet, ab zwei
 Servern ist eine bestätigte Auswahl erforderlich. Namen und numerische IDs sind
@@ -171,7 +180,23 @@ getrennt, IDs erscheinen zusätzlich im Dialog. Große Ganzzahlen bleiben exakt;
 String-IDs werden bewusst abgewiesen. Abbruch sendet keinen Create-Request.
 
 Konferenzantwort muss genau ein Objekt mit HTTPS-URL und Titel enthalten.
-Die URL wird unverändert eingefügt; es gibt keine erfundene UID. Vor Netzwerk
+Die URL wird unverändert eingefügt; es gibt keine erfundene UID.
+Laut aktueller Nutzerangabe enthält die Create-Antwort zusätzlich `id` neben
+`title`. Diese zurückgegebene Konferenz-ID (positive Ganzzahl, auch verlustfrei
+getestete Ziffernfolge) dient ab 1.3.5 ausschließlich dem Bearbeitungslink:
+`{Installationsadresse}/room/dashboard?editConference_id={id}`. Ein vorhandener
+Installationsunterpfad bleibt erhalten. Server-ID, Titel oder Teilnahme-URL
+werden nicht als Konferenz-ID interpretiert.
+
+Der Body enthält unter dem Teilnahmelink einen zweiten Abschnitt:
+„Konferenz in Meetling bearbeiten (nur für Moderatoren):“ und den Bearbeitungslink.
+Beide URLs werden als gezielte native Word-Hyperlinks eingefügt; vorhandene
+Formatierungen und Felder bleiben erhalten. Die Beschriftung ist ein Hinweis;
+Meetling muss den Zugriff auf die Bearbeitung serverseitig prüfen. Fehlt eine
+gültige ID in einer älteren Antwort, wird der bereits erstellte Raum trotzdem
+eingefügt und der fehlende Bearbeitungslink erklärt. Kein erneuter Create-Aufruf.
+Auch der Dialog zur manuellen Übernahme enthält beide Links, soweit verfügbar.
+ Vor Netzwerk
 wird der Zielentwurf erfasst. Im Explorer wird ein nativer Besprechungsentwurf
 geöffnet, im bearbeitbaren Termin-/Mailfenster das vorhandene Element ergänzt.
 Word-Range-Einfügung hängt den Linkblock hinten an und erhält Formatierung und
