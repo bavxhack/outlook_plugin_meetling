@@ -55,6 +55,10 @@ internal static class Program
             }
             foreach (var bad in new[] { "{}", "[{}]", "[{\"id\":null,\"name\":\"a\"}]", "[{\"id\":\"\",\"name\":\"a\"}]", "[{\"id\":\"10\",\"name\":\"a\"}]", "[{\"id\":1.5,\"name\":\"a\"}]", "[{\"id\":1,\"name\":\"a\"},{\"id\":1,\"name\":\"b\"}]" }) Reject(() => MeetlingApiClient.ParseServers(JToken.Parse(bad)), "invalid server schema");
             Check(MeetlingApiClient.ParseServers(JToken.Parse("[{\"id\":999999999999999999999999999999,\"name\":\"a\"}]"))[0].Id == "999999999999999999999999999999", "large ID lossless");
+            foreach (var url in new[] { "https://sso.example/otp?session=secret", "https://host.example/callback?code=secret", "about:blank" }) Check(BrowserNavigationPolicy.IsAllowed(url), "supported browser navigation");
+            foreach (var url in new[] { "http://sso.example/otp", "javascript:alert(1)", "file:///secret", "data:text/html,secret", "https://user:password@sso.example/", "not a URL" }) Check(!BrowserNavigationPolicy.IsAllowed(url), "unsupported browser navigation");
+            Check(BrowserNavigationPolicy.Classify(settings.Endpoint(settings.Endpoints.Login), "https://sso.example/otp?session=secret") == "identity-provider", "safe SSO diagnosis excludes session data");
+            Check(BrowserNavigationPolicy.Classify(settings.Endpoint(settings.Endpoints.Login), "https://host.example/callback?code=secret") == "installation", "safe callback diagnosis excludes codes");
             var expected = settings.Endpoint(settings.Endpoints.Login);
             Check(expected.AbsoluteUri == "https://host.example/meetling/room/outlook/plugin/outlooklogin", "default Outlook login endpoint");
             Check(SettingsValidator.IsExpectedLogin(expected, expected.AbsoluteUri), "exact login");

@@ -15,6 +15,12 @@ Keine Secrets protokollieren.
    Organisationshinweis/Sperre prüfen, ungültige Datei darf GUI nicht aktivieren.
 4. Anmelden: tatsächliches SSO/MFA, Rückkehr zum exakten Login-Endpunkt,
    automatische Tokenübernahme, keine Token in JSON-Konfiguration/Logs/Body.
+   SSO-Popups mit gleichem Browserkontext, automatisches window.close und
+   Schließen aller Popups bei Abbruch/Timeout/Shutdown prüfen. Bleibt die Rückkehr
+   nach erfolgreich abgeschlossenem OTP aus, „Zurück zu Meetling“ testen.
+   BrowserLogin-Diagnose auf Kategorien/Statuscodes ohne URLs, OTP oder Codes prüfen.
+   Funktioniert der gleiche Endpunkt im normalen Edge, aber nicht im WebView,
+   den letzten BrowserLogin-Schritt und gegebenenfalls WebErrorStatus festhalten.
    Fehlt die Rückkehr, Integrationsgrenze protokollieren. Fremde Origin/Pfade,
    Abbruch, Timeout und mehrfachen Klick prüfen.
 5. Outlook neu starten: keine automatische Browseröffnung, Token wird sicher

@@ -32,3 +32,13 @@ realer Meetling-/SSO-Installation. SSO-Rückkehr und Moderatoridentität sind of
 Keine simulierte Antwort wird als produktive Integration bezeichnet. Auch
 native Word-Editor-Einfügung, Feld-/Formatierungserhalt und Outlook-Bitnessen
 müssen real geprüft werden. Keine Zugangsdaten oder Testinstanz bereitgestellt.
+
+## Rückmeldung aus Live-Versuch (20.10.2026)
+
+Nutzer meldet: /outlooklogin liefert nach OTP im normalen Edge die Token-JSON-
+Antwort; im Add-in bleibt die OTP-Seite stehen. Die konkrete Ursache ist ohne
+Browserablauf/Diagnose noch unbestätigt. Im Client wurde eine pauschale Sperre
+zusätzlicher SSO-Fenster gefunden. Ergänzt wurden SSO-Popups im gleichen
+WebView2-Kontext, sichere Navigationsdiagnose und eine explizite Rückkehr zum
+konfigurierten Endpunkt. Diese Änderungen sind kein Nachweis einer behobenen
+Live-OTP-Störung. Erneuter Versuch mit neuem Paket erforderlich.

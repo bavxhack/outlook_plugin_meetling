@@ -55,9 +55,25 @@ WebView2-Profilordner unter `%LOCALAPPDATA%\Meetling\OutlookAddIn\WebView2\`.
 Damit werden Cookies einer früheren Add-in-Anmeldung nicht wiederverwendet.
 Verwaiste Profilordner können bei geschlossenem Outlook administrativ entfernt
 werden. API-Logout beendet keine Symfony-Web-Sitzung; es gibt keinen erfundenen
-SSO-Logout. Systembrowserprofile werden weder gelesen noch verändert. Popups
-werden nicht an den Systembrowser ausgelagert; ein SSO mit zwingendem Popup ist
-als installationsabhängige Integrationsgrenze zu prüfen.
+SSO-Logout. Systembrowserprofile werden weder gelesen noch verändert. SSO-Popups werden
+über WebView2 NewWindowRequested/GetDeferral/NewWindow im gleichen isolierten
+Browserkontext geöffnet, einschließlich opener-Verbindung. Sie werden bei Ende
+des Anmeldevorgangs geschlossen. Nur HTTPS und leere about:blank-Dokumente sind
+zulässig; HTTP und fremde Protokolle bleiben gesperrt.
+
+Bei ausbleibender automatischer Rückkehr nach abgeschlossener MFA kann der Nutzer
+„Zurück zu Meetling“ wählen. Das navigiert im bestehenden Browserkontext erneut
+zum exakt konfigurierten outlooklogin-Endpunkt. Es umgeht weder OTP noch die
+Prüfung der Tokenantwort, erfindet keine Callback-URLs und übernimmt keine Cookies
+in HttpClient. Vor Abschluss der MFA kann der Button wieder zur Anmeldung führen.
+
+Im Fenster stehen Navigationsfehler und der Anmeldeschritt. diagnose.log enthält
+BrowserLogin-Einträge für Start, Weiterleitungskategorie, WebErrorStatus,
+HTTP-Fehlerstatus, Popup und validierte Tokenantwort. URLs, Queryparameter,
+SSO-Codes, OTP, Zugangsdaten, Cookies und Antwortinhalte werden nicht protokolliert.
+Diagnosekategorien sind plugin-login, installation, identity-provider,
+empty-document und blocked. Die Diagnose liest keine Formularinhalte.
+Referenz: https://learn.microsoft.com/dotnet/api/microsoft.web.webview2.core.corewebview2.newwindowrequested
 
 Token und Anzeigename werden gemeinsam per Windows DPAPI CurrentUser geschützt
 und atomar in `plugin-token-<SHA256-Installation>.bin` gespeichert. Installation
