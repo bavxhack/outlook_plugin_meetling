@@ -4,7 +4,7 @@ Thunderbird-Erweiterung für dieselbe Meetling-API wie das Outlook-Plugin. Zielv
 
 ## Installation und Verwendung
 
-1. `Meetling-Thunderbird-1.0.0.xpi` im Actions-Artefakt herunterladen.
+1. `Meetling-Thunderbird-1.0.1.xpi` im Actions-Artefakt herunterladen.
 2. Thunderbird → Add-ons und Themes → Zahnrad → Add-on aus Datei installieren.
 3. Meetling-Schaltfläche in der Hauptsymbolleiste öffnen, Einstellungen aufklappen und die HTTPS-Basisadresse eintragen. Bestehende Outlook-JSON-Konfiguration lässt sich unter „Erweiterte API-Konfiguration“ importieren.
 4. „Anmelden“ öffnet den Thunderbird-Browser für SSO/OTP. Nach der validierten Token-Antwort schließt sich das Loginfenster. Benutzername und Serverbuttons erscheinen im Meetling-Fenster.

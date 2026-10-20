@@ -2,6 +2,7 @@
   let stage="setup";
   try{
     await browser.smoke.setup();
+    stage="normal-new-event";await browser.smoke.naturalDraft();
     stage="openDraft";
     const target=await browser.meetlingHost.openDraft();
     stage="seed";await browser.smoke.seed();
@@ -16,6 +17,6 @@
     if(await browser.meetlingHost.vaultGet("https://other.example/"))throw Error("Vault installation binding failed");
     await browser.meetlingHost.vaultDelete("https://host.example/meetling/");
     if(await browser.meetlingHost.vaultGet("https://host.example/meetling/"))throw Error("Vault delete failed");
-    await browser.smoke.finish(JSON.stringify({success:true,checks:["native draft opened","native button injected","rich text preserved","two clickable links","title set","other fields preserved","no automatic save","duplicate insertion blocked","encrypted vault roundtrip, replacement, deletion and binding","packaged XPI installed and active"]}));
+    await browser.smoke.finish(JSON.stringify({success:true,checks:["normal new-event window shows button without forced API scanning","native draft opened","native button injected","rich text preserved","two clickable links","title set","other fields preserved","no automatic save","duplicate insertion blocked","encrypted vault roundtrip, replacement, deletion and binding","packaged XPI installed and active"]}));
   }catch(error){await browser.smoke.finish(JSON.stringify({success:false,error:String(error),stage,stack:error.stack}));}
 })();

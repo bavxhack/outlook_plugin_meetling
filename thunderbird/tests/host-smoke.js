@@ -22,6 +22,26 @@ var smoke = class extends ExtensionCommon.ExtensionAPI {
         calendar.id=Services.uuid.generateUUID().toString();calendar.name="Meetling CI";
         cal.manager.registerCalendar(calendar);win.getSelectedCalendar=()=>calendar;
       },
+      async naturalDraft() {
+        const win=Services.wm.getMostRecentWindow("mail:3pane");
+        Services.prefs.setBoolPref("calendar.item.editInTab",false);
+        // Normal Thunderbird entry point, before ANY meetlingHost call/scanning.
+        win.createEventWithDialog();
+        const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+        let found;
+        for(let i=0;i<100;i++) {
+          for(const top of Services.wm.getEnumerator(null)) for(const frame of top.document.querySelectorAll("iframe")) {
+            const child=frame.contentWindow;
+            if(child?.calendarItem?.calendar?.id===calendar.id && child.onLoad?.hasLoaded) found=child;
+          }
+          if(found?.document.getElementById("meetling-event-actions"))break;
+          await wait(100);
+        }
+        const box=found?.document.getElementById("meetling-event-actions");
+        if(!box || box.getBoundingClientRect().height===0)throw Error("Normal Neuer Termin window has no visible Meetling button");
+        found.top.close();
+        await wait(200);
+      },
       async seed() {
         for(const top of Services.wm.getEnumerator(null)) {
           for(const frame of top.document.querySelectorAll("iframe")) {

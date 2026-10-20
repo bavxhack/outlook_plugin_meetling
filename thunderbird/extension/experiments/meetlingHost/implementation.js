@@ -3,7 +3,7 @@ var { ExtensionCommon } = ChromeUtils.importESModule("resource://gre/modules/Ext
 var { ExtensionSupport } = ChromeUtils.importESModule("resource:///modules/ExtensionSupport.sys.mjs");
 var meetlingHost = class extends ExtensionCommon.ExtensionAPI {
   getAPI(context) {
-    const targets = new Map(), documents = new Set(), topWindows = new Map();
+    const targets = new Map(), documents = new Set(), topWindows = new Map(), ownedButtons = new Set();
     const listenerId = context.extension.id + ":meetling-drafts";
     const origin = "chrome://meetling-thunderbird";
     let fireCommand = null;
@@ -27,6 +27,8 @@ var meetlingHost = class extends ExtensionCommon.ExtensionAPI {
       if (!isEditor(win) || documents.has(win.document)) return;
       const grid = win.document.getElementById("event-grid");
       if (!grid) return;
+      // More than one bridge instance can coexist during restart/tests. Own only our nodes.
+      if (win.document.getElementById("meetling-event-actions")) { documents.add(win.document); return; }
       const box = win.document.createXULElement("hbox"); box.id = "meetling-event-actions";
       box.setAttribute("style", "padding: 8px; gap: 8px; align-items: center;");
       const button = win.document.createXULElement("button");
@@ -36,7 +38,7 @@ var meetlingHost = class extends ExtensionCommon.ExtensionAPI {
         try { fireCommand?.(capture(win)); }
         catch { Services.prompt.alert(win, "Meetling", "Bitte einen bearbeitbaren Kalendertermin öffnen."); }
       });
-      box.append(button); grid.before(box); documents.add(win.document);
+      box.append(button); grid.before(box); documents.add(win.document); ownedButtons.add(box);
     };
     const scan = win => {
       try {
@@ -46,16 +48,37 @@ var meetlingHost = class extends ExtensionCommon.ExtensionAPI {
         }
       } catch { /* A window may close during scanning. */ }
     };
+    const watch = win => {
+      if (topWindows.has(win)) return;
+      const handler = () => scan(win);
+      // Calendar iframes are inserted and navigated after the top-level load event.
+      // Observe both insertion and the frame's own load; load does not bubble across documents.
+      const frames = new Set();
+      const refresh = () => {
+        for (const frame of win.document.querySelectorAll("iframe")) {
+          if (!frames.has(frame)) { frame.addEventListener("load", handler, true); frames.add(frame); }
+        }
+        handler();
+      };
+      const observer = new win.MutationObserver(refresh);
+      observer.observe(win.document, { childList: true, subtree: true });
+      win.addEventListener("load", refresh, true);
+      const cleanup = () => {
+        observer.disconnect(); win.removeEventListener("load", refresh, true);
+        for (const frame of frames) frame.removeEventListener("load", handler, true);
+        for (const doc of documents) if (!doc.defaultView || doc.defaultView.closed || doc.defaultView.top === win) documents.delete(doc);
+        for (const [id, target] of targets) if (target.win.closed || target.win.top === win) targets.delete(id);
+        for (const button of ownedButtons) if (!button.isConnected) ownedButtons.delete(button);
+        topWindows.delete(win);
+      };
+      topWindows.set(win, cleanup);
+      win.addEventListener("unload", cleanup, { once: true });
+      refresh();
+    };
     ExtensionSupport.registerWindowListener(listenerId, {
       chromeURLs: ["chrome://messenger/content/messenger.xhtml", "chrome://calendar/content/calendar-event-dialog.xhtml"],
-      onLoadWindow(win) {
-        const handler = () => scan(win); topWindows.set(win, handler);
-        win.addEventListener("load", handler, true); handler();
-      },
-      onUnloadWindow(win) {
-        win.removeEventListener("load", topWindows.get(win), true); topWindows.delete(win);
-        for (const [id, t] of targets) if (t.win.closed || t.win.top === win) targets.delete(id);
-      }
+      onLoadWindow: watch,
+      onUnloadWindow(win) { topWindows.get(win)?.(); }
     });
     const allEditors = () => {
       for (const win of Services.wm.getEnumerator(null)) scan(win);
@@ -69,8 +92,9 @@ var meetlingHost = class extends ExtensionCommon.ExtensionAPI {
     const logins = value => Services.logins.searchLoginsAsync({ origin, httpRealm: installation(value) });
     context.callOnClose({ close() {
       ExtensionSupport.unregisterWindowListener(listenerId);
-      for (const [win, handler] of topWindows) win.removeEventListener("load", handler, true);
-      for (const doc of documents) doc.getElementById("meetling-event-actions")?.remove();
+      for (const button of ownedButtons) button.remove();
+      for (const cleanup of [...topWindows.values()]) cleanup();
+      ownedButtons.clear();
       targets.clear(); documents.clear(); topWindows.clear();
     } });
     return { meetlingHost: {

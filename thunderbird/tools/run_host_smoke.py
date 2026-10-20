@@ -24,7 +24,7 @@ with tempfile.TemporaryDirectory(prefix='meetling-thunderbird-') as tmp:
     manifest['experiment_apis']['meetlingHost']=json.loads((root/'extension/manifest.json').read_text())['experiment_apis']['meetlingHost']
     with zipfile.ZipFile(extensions/'meetling-ci@example.invalid.xpi','w') as z:
         z.writestr('manifest.json',json.dumps(manifest))
-        z.writestr('schema.json',json.dumps([{"namespace":"smoke","functions":[dict(name=name,type='function',**{'async':True},parameters=([dict(name='report',type='string')] if name=='finish' else [])) for name in ['setup','seed','verify','finish']]}]))
+        z.writestr('schema.json',json.dumps([{"namespace":"smoke","functions":[dict(name=name,type='function',**{'async':True},parameters=([dict(name='report',type='string')] if name=='finish' else [])) for name in ['setup','naturalDraft','seed','verify','finish']]}]))
         z.writestr('background.js',(root/'tests/host-background.js').read_bytes())
         z.writestr('icon.svg',(root/'extension/icon.svg').read_bytes())
         for name in ['schema.json','implementation.js']:
