@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('x86', 'x64')]
@@ -6,6 +6,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (Get-Process OUTLOOK -ErrorAction SilentlyContinue) { throw 'Close Outlook completely first.' }
 $registryView = if ($OutlookBitness -eq 'x86') {
     [Microsoft.Win32.RegistryView]::Registry32
 } else {
@@ -33,5 +34,11 @@ finally {
 }
 
 $target = Join-Path $env:LOCALAPPDATA "Meetling\OutlookAddIn\$OutlookBitness"
-Remove-Item $target -Recurse -Force -ErrorAction SilentlyContinue
+# Remove only known shipped binaries, preserving any settings and unrelated files.
+if (Test-Path $target) {
+    Get-ChildItem $target -Recurse -File |
+        Where-Object { $_.Name -in @('Meetling.OutlookAddIn.dll', 'Meetling.Core.dll', 'Microsoft.Office.Interop.Outlook.dll') } |
+        Remove-Item -Force
+}
 Write-Host 'Meetling wurde für den aktuellen Benutzer deinstalliert.'
+

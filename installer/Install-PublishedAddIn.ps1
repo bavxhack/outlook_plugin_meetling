@@ -1,24 +1,12 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
-    [ValidateSet('x86', 'x64')]
-    [string] $OutlookBitness,
-
+    [Parameter(Mandatory = $true)][ValidateSet('x86', 'x64')][string] $OutlookBitness,
     [string] $PackageDirectory = $PSScriptRoot
 )
-
 $ErrorActionPreference = 'Stop'
-$requiredFiles = @(
-    'Meetling.OutlookAddIn.dll',
-    'Meetling.Core.dll',
-    'Microsoft.Office.Interop.Outlook.dll'
-)
-foreach ($file in $requiredFiles) {
-    if (-not (Test-Path (Join-Path $PackageDirectory $file))) {
-        throw "Erforderliche Datei fehlt im Paket: $file. Bitte das vollständige ZIP erneut herunterladen und entpacken."
-    }
-}
-
+. (Join-Path $PSScriptRoot 'Package-Tools.ps1')
+Assert-InstallPrerequisites $OutlookBitness
+$identity = Get-PackageIdentity $PackageDirectory $OutlookBitness
 function Invoke-RegistryCommand {
     param([Parameter(Mandatory = $true)][string[]] $Arguments)
 
@@ -28,76 +16,34 @@ function Invoke-RegistryCommand {
     }
 }
 
-function Get-InstalledOutlookBitness {
-    $locations = @(
-        @{ Path = 'SOFTWARE\Microsoft\Office\ClickToRun\Configuration'; Value = 'Platform' },
-        @{ Path = 'SOFTWARE\Microsoft\Office\16.0\Outlook'; Value = 'Bitness' }
-    )
-    $views = @(
-        [Microsoft.Win32.RegistryView]::Registry64,
-        [Microsoft.Win32.RegistryView]::Registry32
-    )
 
-    foreach ($view in $views) {
-        $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, $view)
-        try {
-            foreach ($location in $locations) {
-                $key = $baseKey.OpenSubKey($location.Path)
-                try {
-                    if ($null -eq $key) {
-                        continue
-                    }
-
-                    $registryValue = $key.GetValue($location.Value)
-                    $value = if ($null -eq $registryValue) { $null } else { $registryValue.ToString().ToLowerInvariant() }
-                    if ($value -in @('x86', 'x64')) {
-                        return $value
-                    }
-                }
-                finally {
-                    if ($null -ne $key) {
-                        $key.Dispose()
-                    }
-                }
-            }
-        }
-        finally {
-            $baseKey.Dispose()
-        }
-    }
-
-    return $null
-}
-
-if (Get-Process OUTLOOK -ErrorAction SilentlyContinue) {
-    throw 'Outlook läuft noch. Bitte Outlook vollständig schließen und die Installation erneut starten.'
-}
-
-$installedBitness = Get-InstalledOutlookBitness
-if ($null -ne $installedBitness -and $installedBitness -ne $OutlookBitness) {
-    throw "Installationspaket und Outlook passen nicht zusammen. Installiert ist Outlook $installedBitness, ausgewählt wurde $OutlookBitness."
-}
-
-$frameworkRelease = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release -ErrorAction SilentlyContinue).Release
-if ($null -eq $frameworkRelease -or $frameworkRelease -lt 528040) {
-    throw '.NET Framework 4.8 ist nicht installiert. Bitte .NET Framework 4.8 installieren und die Installation wiederholen.'
-}
-
-$sourceDlls = Get-ChildItem $PackageDirectory -Filter '*.dll' -File
+# Every runtime DLL is copied. No settings or secrets are read or removed.
+$sourceDlls = @(Get-ChildItem -LiteralPath $PackageDirectory -Filter '*.dll' -File)
 $sourceDlls | Unblock-File
-
-$target = Join-Path $env:LOCALAPPDATA "Meetling\OutlookAddIn\$OutlookBitness"
+# Versioned directories preserve the previous registration if a new copy fails.
+$target = Join-Path $env:LOCALAPPDATA "Meetling\OutlookAddIn\$OutlookBitness\$($identity.Version)"
 New-Item -ItemType Directory -Force $target | Out-Null
-$sourceDlls | Copy-Item -Destination $target -Force
+foreach ($file in $sourceDlls) {
+    $destination = Join-Path $target $file.Name
+    if ([IO.Path]::GetFullPath($file.FullName) -ne [IO.Path]::GetFullPath($destination)) {
+        Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+    }
+}
+$installedIdentity = Get-PackageIdentity $target $OutlookBitness
+if ($installedIdentity.FullName -ne $identity.FullName) { throw 'Installed assembly identity differs from package.' }
+foreach ($file in $sourceDlls) {
+    if ((Get-FileHash $file.FullName).Hash -ne (Get-FileHash (Join-Path $target $file.Name)).Hash) {
+        throw "Copy verification failed: $($file.Name)"
+    }
+}
 Get-ChildItem $target -Filter '*.dll' -File | Unblock-File
-
 $addInPath = (Resolve-Path (Join-Path $target 'Meetling.OutlookAddIn.dll')).Path
 $codeBase = [Uri]::new($addInPath).AbsoluteUri
 $registryView = if ($OutlookBitness -eq 'x86') { '32' } else { '64' }
 $progId = 'Meetling.OutlookAddIn'
 $classId = '{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}'
 $className = 'Meetling.OutlookAddIn.MeetlingAddIn'
-$assemblyName = 'Meetling.OutlookAddIn, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'
+$assemblyName = $identity.FullName
 $classesRoot = 'HKCU\Software\Classes'
 $classKey = "$classesRoot\CLSID\$classId"
 $inprocKey = "$classKey\InprocServer32"
@@ -114,11 +60,23 @@ Invoke-RegistryCommand @('ADD', $inprocKey, '/v', 'Class', '/t', 'REG_SZ', '/d',
 Invoke-RegistryCommand @('ADD', $inprocKey, '/v', 'Assembly', '/t', 'REG_SZ', '/d', $assemblyName, '/f', $viewArgument)
 Invoke-RegistryCommand @('ADD', $inprocKey, '/v', 'RuntimeVersion', '/t', 'REG_SZ', '/d', 'v4.0.30319', '/f', $viewArgument)
 Invoke-RegistryCommand @('ADD', $inprocKey, '/v', 'CodeBase', '/t', 'REG_SZ', '/d', $codeBase, '/f', $viewArgument)
-Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'FriendlyName', '/t', 'REG_SZ', '/d', 'Meetling-Konferenzen', '/f', $viewArgument)
-Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'Description', '/t', 'REG_SZ', '/d', 'Erstellt Meetling-Konferenzen aus Outlook-Terminen.', '/f', $viewArgument)
+# Match RegAsm's version-specific CLR activation metadata, derived from the package.
+$versionKey = "$inprocKey\$($identity.Version)"
+foreach ($entry in @{
+    Class = $className
+    Assembly = $assemblyName
+    RuntimeVersion = 'v4.0.30319'
+    CodeBase = $codeBase
+}.GetEnumerator()) {
+    Invoke-RegistryCommand @('ADD', $versionKey, '/v', $entry.Key, '/t', 'REG_SZ', '/d', $entry.Value, '/f', $viewArgument)
+}
+Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'FriendlyName', '/t', 'REG_SZ', '/d', 'Meetling', '/f', $viewArgument)
+Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'Description', '/t', 'REG_SZ', '/d', 'Lokale Meetling-Basisversion.', '/f', $viewArgument)
 Invoke-RegistryCommand @('ADD', $addInKey, '/v', 'LoadBehavior', '/t', 'REG_DWORD', '/d', '3', '/f', $viewArgument)
 
 Invoke-RegistryCommand @('QUERY', $inprocKey, '/v', 'CodeBase', $viewArgument)
 Invoke-RegistryCommand @('QUERY', $addInKey, '/v', 'LoadBehavior', $viewArgument)
 
-Write-Host 'Meetling wurde für den aktuellen Benutzer installiert. Outlook kann jetzt gestartet werden.'
+
+Write-Host "Registration completed for current user: $($identity.FullName), $OutlookBitness."
+Write-Host 'Loading in Outlook has not been verified. Continue with docs/smoke-test.md.'
