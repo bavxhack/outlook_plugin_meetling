@@ -112,10 +112,17 @@ dass genau dieses Problem beim gemeldeten Live-Versuch vorlag.
 
 WebView2 und HttpClient verwenden unterschiedliche Netzwerkstacks. Ein Erfolg
 im Anmeldebrowser beweist deshalb noch keine funktionierende API-Verbindung.
-TLS- und Zertifikatsrichtlinien des Betriebssystems/Hosts bleiben erhalten.
-Es werden weder globale ServicePointManager-Vorgaben geändert noch eigene
-Zertifikatsprüfungen eingesetzt. Systemproxy, Redirect-Sperre und Verzicht auf
+Ab Version 1.3.3 bietet ausschließlich der API-HttpClient TLS 1.2 und TLS 1.3
+über HttpClientHandler.SslProtocols an. Damit begrenzen möglicherweise alte
+TLS-Vorgaben des Outlook-/CLR-Hosts diesen Client nicht mehr auf TLS 1.0.
+Windows handelt eine unterstützte Version aus; SSL3/TLS1.0/TLS1.1 werden nicht
+angeboten. Betriebssystemrichtlinien und Zertifikatsprüfung bleiben wirksam.
+Globale ServicePointManager-Vorgaben des Outlook-Prozesses werden nicht geändert.
+Es werden keine eigenen Zertifikatsprüfungen eingesetzt. Systemproxy, Redirect-Sperre und Verzicht auf
 Cookies bleiben erhalten. Keine automatische Wiederholung.
+Referenzen: https://learn.microsoft.com/dotnet/api/system.net.http.httpclienthandler.sslprotocols
+und https://learn.microsoft.com/dotnet/framework/network-programming/tls
+(TLS-1.3-Konstante 12288 für ältere Referenzassemblies).
 
 ApiRequest-Einträge melden die feste Aktion (servers/create/logout), Start,
 HTTP-Status und bei Serverlisten die Anzahl. Transportfehler liefern eine

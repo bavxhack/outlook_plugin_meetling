@@ -15,8 +15,11 @@ public sealed class MeetlingApiClient
     public MeetlingApiClient(HttpClient http, Action<string>? diagnostic = null) { this.http = http; this.diagnostic = diagnostic; }
     public static HttpClientHandler CreateTransportHandler() => new HttpClientHandler
     {
-        AllowAutoRedirect = false, UseCookies = false
-        // Keep OS/host TLS policy and certificate validation; transport diagnosis is separate.
+        AllowAutoRedirect = false, UseCookies = false,
+        // COM-hosted .NET can inherit pre-4.7 TLS defaults from Outlook.
+        // Scope modern protocols to this client, leaving Outlook's globals alone.
+        // TLS 1.3 = 12288 is the documented value absent from netstandard2.0's enum.
+        SslProtocols = SslProtocols.Tls12 | (SslProtocols)12288
     };
     public static HttpClient CreateHttpClient(MeetlingSettings settings) => new HttpClient(CreateTransportHandler()) { Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds) };
     private void Trace(string message) { try { diagnostic?.Invoke(message); } catch (Exception) { /* Logging must not affect HTTP. */ } }
@@ -38,7 +41,7 @@ public sealed class MeetlingApiClient
     {
         using (var request = BuildRequest(settings, action, token, id))
         {
-            Trace("ApiRequest " + action + " start redirects=off cookies=off");
+            Trace("ApiRequest " + action + " start TLS-offered=1.2/1.3 redirects=off cookies=off");
             try
             {
                 using (var response = await http.SendAsync(request, ct).ConfigureAwait(false))

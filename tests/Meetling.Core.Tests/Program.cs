@@ -29,12 +29,21 @@ internal static class Program
         try
         {
             var inheritedProtocol = ServicePointManager.SecurityProtocol;
-            using (var transport = MeetlingApiClient.CreateTransportHandler())
+            try
             {
-                Check(!transport.AllowAutoRedirect && !transport.UseCookies, "transport isolation");
-                Check(transport.ServerCertificateCustomValidationCallback == null, "normal certificate validation retained");
-                Check(ServicePointManager.SecurityProtocol == inheritedProtocol, "global host settings unchanged");
+                // Simulate a COM host with legacy process-wide network defaults.
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls;
+                using (var transport = MeetlingApiClient.CreateTransportHandler())
+                {
+                    Check((transport.SslProtocols & SslProtocols.Tls12) != 0, "TLS 1.2 independent of legacy host");
+                    Check((transport.SslProtocols & (SslProtocols)12288) != 0, "TLS 1.3 offered for supported Windows versions");
+                    Check((transport.SslProtocols & (SslProtocols.Ssl3 | SslProtocols.Tls | SslProtocols.Tls11)) == 0, "obsolete protocols excluded from API handler");
+                    Check(!transport.AllowAutoRedirect && !transport.UseCookies, "transport isolation");
+                    Check(transport.ServerCertificateCustomValidationCallback == null, "normal certificate validation retained");
+                    Check(ServicePointManager.SecurityProtocol == SecurityProtocolType.Tls, "global host settings unchanged");
+                }
             }
+            finally { ServicePointManager.SecurityProtocol = inheritedProtocol; }
             var failures = new[]
             {
                 new { Error = new HttpRequestException("secret URL", new AuthenticationException("secret certificate")), Category = "tls" },

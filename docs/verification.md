@@ -80,3 +80,18 @@ ApiRequest-Einträge unterscheiden Transportfehler von HTTP-Status und einer
 validen leeren Liste. Die konkrete Ursache des äußeren HttpRequestException ist
 im Nutzerlog nicht belegt. Echte Konferenzerstellung und Moderatorzuordnung sind
 weiterhin unbestätigt.
+
+## TLS-Verbindungsfehler eingegrenzt (Version 1.3.3)
+
+Das Nutzerlog von Version 1.3.2 meldet beim Serverabruf SecureChannelFailure
+vor einer HTTP-Antwort. Der TLS-Verbindungsaufbau scheitert; ein bestimmter
+Protokoll-/Cipher-/Zertifikatsgrund ist daraus noch nicht bewiesen. Für den
+API-Handler werden nun TLS 1.2/1.3 explizit angeboten. Der Outlook-Prozess
+behält seine globalen Einstellungen; Zertifikate werden normal geprüft.
+
+Windows-CI simuliert globale TLS-1.0-Hostvorgaben und prüft moderne Protokolle
+am tatsächlichen .NET-Framework-Handler, ausgeschlossene Altprotokolle, normale
+Zertifikatsprüfung und unveränderte globale Einstellungen. Dies ist ein
+Konfigurations-/Runtime-Regressionstest, kein echter TLS-Handshake gegen die
+Nutzerinstallation. Beide Architekturpakete sind als 1.3.3 gekennzeichnet.
+Die erfolgreiche Serververbindung nach dieser Änderung bleibt live zu prüfen.
