@@ -105,7 +105,11 @@ jobs:
           $requiredBuildFiles = @(
               "Meetling.OutlookAddIn.dll",
               "Meetling.Core.dll",
-              "Microsoft.Office.Interop.Outlook.dll"
+              "Microsoft.Office.Interop.Outlook.dll",
+              "Newtonsoft.Json.dll",
+              "Microsoft.Web.WebView2.Core.dll",
+              "Microsoft.Web.WebView2.WinForms.dll",
+              "WebView2Loader.dll"
           )
 
           foreach ($file in $requiredBuildFiles) {
@@ -124,6 +128,7 @@ jobs:
           Copy-Item installer\Package-Tools.ps1 $package -Force
           Copy-Item README.md $package -Force
           Copy-Item docs $package -Recurse -Force
+          Copy-Item config.example.json $package -Force
           . installer\Package-Tools.ps1
           $identity = Get-PackageIdentity $package '${{ matrix.architecture }}'
           if (-not $identity) { throw 'Package identity missing' }

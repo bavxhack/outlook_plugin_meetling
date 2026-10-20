@@ -2,6 +2,8 @@ using Extensibility;
 using Office = Meetling.OutlookAddIn.Interop;
 using System;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace Meetling.OutlookAddIn;
 
@@ -14,6 +16,31 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
 {
     // No settings, filesystem or network work in the constructor.
     private object? application;
+    private PluginController? controller;
+    private Interop.IRibbonUI? ribbon;
+    private PluginController Controller
+    {
+        get
+        {
+            if (controller == null) { controller = new PluginController(); controller.Changed = () => { try { ribbon?.Invalidate(); } catch (Exception) { } }; }
+            return controller;
+        }
+    }
+    private async void Run(Func<Task> operation)
+    {
+        try { await operation(); }
+        catch (Exception ex) { DiagnosticLog.Write("Meetling-Aktion fehlgeschlagen", ex); LocalDialog.Show("Die Aktion konnte nicht abgeschlossen werden. Bitte die Einstellungen und den Anmeldestatus prüfen."); }
+    }
+    public void RibbonLoaded(object ui) { ribbon = ui as Interop.IRibbonUI; }
+    public string GetStatus(object control) => controller?.Status ?? "Konfiguration und Anmeldung über Einstellungen / Anmelden prüfen.";
+    public bool GetCreateEnabled(object control) => controller?.CanCreate ?? false;
+    public bool GetLoginEnabled(object control) => controller?.CanLogin ?? true;
+    public bool GetLogoutEnabled(object control) => controller?.CanLogout ?? false;
+    public void SignIn(object control) => Run(() => Controller.SignIn());
+    public void SignOut(object control) => Run(() => Controller.Logout());
+    public void RefreshServers(object control) => Run(() => Controller.RefreshServers());
+    public void ReloadConfiguration(object control) { try { Controller.Reload(); } catch (Exception ex) { DiagnosticLog.Write("Konfiguration neu laden", ex); LocalDialog.Show("Konfiguration konnte nicht geladen werden."); } }
+
     public MeetlingAddIn() { }
 
     public string GetCustomUI(string ribbonId)
@@ -44,17 +71,8 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
 
     public void CreateMeeting(object control)
     {
-        try
-        {
-            DiagnosticLog.WriteInfo("CreateMeeting entered (mock)");
-            AppointmentComposer.Open(application, MockMeetingDraft.Create());
-        }
-        catch (Exception ex)
-        {
-            DiagnosticLog.Write("CreateMeeting failed", ex);
-            try { LocalDialog.Show("Der Outlook-Termin konnte nicht geöffnet werden. Bitte die Meetling-Diagnose prüfen."); }
-            catch (Exception dialogError) { DiagnosticLog.Write("CreateMeeting error dialog failed", dialogError); }
-        }
+        if (application == null) { LocalDialog.Show("Outlook ist nicht verbunden."); return; }
+        Run(() => Controller.Create(application, control));
     }
 
     public void TestPlugin(object control)
@@ -72,42 +90,49 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
     {
         try
         {
-            DiagnosticLog.WriteInfo("OpenSettings entered");
-            LocalDialog.Show("Basisversion: Die Server- und API-Konfiguration folgt im nächsten Schritt." +
-                Environment.NewLine + "Version: " + DiagnosticLog.Version +
-                Environment.NewLine + "Diagnose: " + DiagnosticLog.LogPath);
+            if (application == null) { LocalDialog.Show("Meetling API-Konfiguration\nVersion: " + DiagnosticLog.Version + "\nDiagnose: " + DiagnosticLog.LogPath); return; }
+            Controller.Settings();
         }
-        catch (Exception ex) { DiagnosticLog.Write("OpenSettings failed", ex); }
+        catch (Exception ex) { DiagnosticLog.Write("OpenSettings failed", ex); LocalDialog.Show("Einstellungen konnten nicht geladen oder gespeichert werden."); }
     }
 
     public void OnConnection(object app, ext_ConnectMode connectMode, object addInInstance, ref Array custom)
     {
-        try { application = app; DiagnosticLog.WriteInfo("OnConnection ConnectMode=" + connectMode); }
+        try { application = app; if (System.Threading.SynchronizationContext.Current == null) System.Threading.SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext()); DiagnosticLog.WriteInfo("OnConnection ConnectMode=" + connectMode); }
         catch (Exception ex) { DiagnosticLog.Write("OnConnection failed", ex); }
     }
 
     public void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom)
-    { application = null; DiagnosticLog.WriteInfo("OnDisconnection RemoveMode=" + removeMode); }
+    { controller?.Dispose(); controller = null; ribbon = null; application = null; DiagnosticLog.WriteInfo("OnDisconnection RemoveMode=" + removeMode); }
     public void OnAddInsUpdate(ref Array custom) => DiagnosticLog.WriteInfo("OnAddInsUpdate");
-    public void OnStartupComplete(ref Array custom) => DiagnosticLog.WriteInfo("OnStartupComplete");
+    public void OnStartupComplete(ref Array custom)
+    {
+        DiagnosticLog.WriteInfo("OnStartupComplete");
+        if (application == null) return;
+        try { _ = Controller; ribbon?.Invalidate(); } catch (Exception ex) { DiagnosticLog.Write("Configuration initialization failed", ex); }
+    }
     public void OnBeginShutdown(ref Array custom)
-    { application = null; DiagnosticLog.WriteInfo("OnBeginShutdown"); }
+    { controller?.Dispose(); controller = null; ribbon = null; application = null; DiagnosticLog.WriteInfo("OnBeginShutdown"); }
 
-    // Calendar Home only; creation is explicitly mocked and performs no API request.
+    // Calendar Home, existing callback and image DISPIDs preserved.
     private const string CalendarTabXml = @"<tab idMso='TabCalendar'>
     <group id='MeetlingCalendarGroup' label='Meetling' insertAfterMso='GroupCalendarNew' getImage='GetMeetlingImage'>
       <button id='MeetlingCalendarStart' label='Neues Meetling' size='large' getImage='GetMeetlingImage'
-        enabled='true' onAction='CreateMeeting' screentip='Neue Outlook-Besprechung mit Meetling-Testlink öffnen.'/>
+        getEnabled='GetCreateEnabled' onAction='CreateMeeting' screentip='Meetling-Konferenz in einer nativen Outlook-Besprechung erstellen.'/>
     </group>
   </tab>";
 
-    private const string RibbonXml = @"<customUI xmlns='http://schemas.microsoft.com/office/2009/07/customui'>
+    private const string RibbonXml = @"<customUI xmlns='http://schemas.microsoft.com/office/2009/07/customui' onLoad='RibbonLoaded'>
   <ribbon><tabs><tab id='MeetlingTab' label='Meetling'>
     <group id='MeetlingGroup' label='Meetling'>
       <button id='MeetlingTest' label='Plugin testen' size='large' enabled='true' onAction='TestPlugin'/>
       <button id='MeetlingSettings' label='Einstellungen' enabled='true' onAction='OpenSettings'/>
-      <button id='MeetlingConference' label='Meetling-Konferenz' enabled='false'
-        screentip='Wird nach erfolgreichem Test der Basisversion aktiviert.'/>
+      <button id='MeetlingConference' label='Neues Meetling' getEnabled='GetCreateEnabled' onAction='CreateMeeting' getImage='GetMeetlingImage'/>
+      <button id='MeetlingLogin' label='Anmelden' getEnabled='GetLoginEnabled' onAction='SignIn'/>
+      <button id='MeetlingLogout' label='Abmelden' getEnabled='GetLogoutEnabled' onAction='SignOut'/>
+      <button id='MeetlingServers' label='Server aktualisieren' getEnabled='GetCreateEnabled' onAction='RefreshServers'/>
+      <button id='MeetlingReload' label='Konfiguration neu laden' onAction='ReloadConfiguration'/>
+      <labelControl id='MeetlingStatus' getLabel='GetStatus'/>
     </group>
   </tab></tabs></ribbon>
 </customUI>";

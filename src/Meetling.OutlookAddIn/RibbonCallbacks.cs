@@ -19,4 +19,13 @@ public interface IMeetlingRibbonCallbacks
     object? GetMeetlingImage([In, MarshalAs(UnmanagedType.IDispatch)] object control);
     [DispId(4)]
     void CreateMeeting([In, MarshalAs(UnmanagedType.IDispatch)] object control);
+    [DispId(5)] void SignIn([In, MarshalAs(UnmanagedType.IDispatch)] object control);
+    [DispId(6)] void SignOut([In, MarshalAs(UnmanagedType.IDispatch)] object control);
+    [DispId(7)] void RefreshServers([In, MarshalAs(UnmanagedType.IDispatch)] object control);
+    [DispId(8)] void ReloadConfiguration([In, MarshalAs(UnmanagedType.IDispatch)] object control);
+    [DispId(9)] void RibbonLoaded([In, MarshalAs(UnmanagedType.IDispatch)] object ui);
+    [DispId(10)] string GetStatus([In, MarshalAs(UnmanagedType.IDispatch)] object control);
+    [DispId(11)] bool GetCreateEnabled([In, MarshalAs(UnmanagedType.IDispatch)] object control);
+    [DispId(12)] bool GetLoginEnabled([In, MarshalAs(UnmanagedType.IDispatch)] object control);
+    [DispId(13)] bool GetLogoutEnabled([In, MarshalAs(UnmanagedType.IDispatch)] object control);
 }

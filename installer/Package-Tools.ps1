@@ -18,13 +18,15 @@ function Get-PeArchitecture([string] $Path) {
 }
 
 function Get-PackageIdentity([string] $Directory, [string] $Architecture) {
-    foreach ($name in @('Meetling.OutlookAddIn.dll', 'Meetling.Core.dll', 'Microsoft.Office.Interop.Outlook.dll')) {
+    foreach ($name in @('Meetling.OutlookAddIn.dll', 'Meetling.Core.dll', 'Microsoft.Office.Interop.Outlook.dll', 'Newtonsoft.Json.dll', 'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll')) {
         $file = Join-Path $Directory $name
         if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Required runtime file missing: $file" }
         # GetAssemblyName reads metadata without loading dependencies into this process.
         $identity = [Reflection.AssemblyName]::GetAssemblyName($file)
         if ($identity.Name -ne [IO.Path]::GetFileNameWithoutExtension($name)) { throw "Unexpected assembly: $file" }
     }
+    $loader = Join-Path $Directory 'WebView2Loader.dll'
+    if (-not (Test-Path $loader) -or (Get-PeArchitecture $loader) -ne $Architecture) { throw 'Missing or incorrect WebView2 native loader.' }
     $dll = Join-Path $Directory 'Meetling.OutlookAddIn.dll'
     if ((Get-PeArchitecture $dll) -ne $Architecture) { throw "Package architecture does not match $Architecture" }
     $identity = [Reflection.AssemblyName]::GetAssemblyName($dll)

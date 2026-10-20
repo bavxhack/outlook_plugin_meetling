@@ -53,10 +53,7 @@ internal static class Program
                         ref args, IntPtr.Zero, ref exception, out error));
                     if (pair.Id == 4)
                     {
-                        Check(created != null, "Meeting callback did not reach native editor boundary");
-                        Check(created!.MeetingLink.Host == "meetling.example.invalid" &&
-                            created.BodyText.Contains(created.MeetingLink.AbsoluteUri) &&
-                            created.BodyText.Contains("Mock") && created.Subject.Contains("Test"), "Mock meeting content");
+                        Check(shown == "Outlook ist nicht verbunden.", "Create callback must guard absent Outlook");
                         continue;
                     }
                     Check(shown != null && shown.Contains(DiagnosticLog.Version) && shown.Contains("Version: "),
@@ -67,6 +64,23 @@ internal static class Program
                 }
                 finally { Marshal.FreeCoTaskMem(variant); }
             }
+
+            foreach (var pair in new[] { new { Name = "SignIn", Id = 5 }, new { Name = "SignOut", Id = 6 }, new { Name = "RefreshServers", Id = 7 }, new { Name = "ReloadConfiguration", Id = 8 }, new { Name = "RibbonLoaded", Id = 9 }, new { Name = "GetStatus", Id = 10 }, new { Name = "GetCreateEnabled", Id = 11 }, new { Name = "GetLoginEnabled", Id = 12 }, new { Name = "GetLogoutEnabled", Id = 13 } })
+            {
+                var ids = new int[1]; Marshal.ThrowExceptionForHR(names(dispatchPointer, ref iid, new[] { pair.Name }, 1, 0, ids));
+                Check(ids[0] == pair.Id, "New callback DISPID changed");
+            }
+            // DPAPI round trip, restart reuse and installation binding (standard user).
+            var tokenStore = new TokenStore();
+            var installation = "https://token-test.example.invalid/" + Guid.NewGuid().ToString("N") + "/";
+            try
+            {
+                tokenStore.Save(installation, new Meetling.Core.LoginResult("opaque-token", "Test"));
+                Check(new TokenStore().Load(installation)?.Token == "opaque-token", "DPAPI restart reuse");
+                Check(tokenStore.Load(installation + "other/") == null, "Installation token binding");
+                tokenStore.Delete(installation); Check(tokenStore.Load(installation) == null, "Token deletion");
+            }
+            finally { tokenStore.Delete(installation); }
 
             var imageIds = new int[1];
             Marshal.ThrowExceptionForHR(names(dispatchPointer, ref iid, new[] { "GetMeetlingImage" }, 1, 0, imageIds));
@@ -129,16 +143,17 @@ internal static class Program
                     var calendarGroup = calendarTab.Element(ns + "group")!;
                     Check((string?)calendarGroup.Attribute("insertAfterMso") == "GroupCalendarNew", "Calendar placement");
                     var start = calendarGroup.Element(ns + "button")!;
-                    Check((string?)start.Attribute("enabled") == "true" &&
+                    Check((string?)start.Attribute("getEnabled") == "GetCreateEnabled" &&
                         (string?)start.Attribute("onAction") == "CreateMeeting", "Calendar click binding");
                     Check((string?)start.Attribute("id") == "MeetlingCalendarStart" &&
                         (string?)start.Attribute("getImage") == "GetMeetlingImage", "Calendar logo binding");
                 }
                 var buttons = group.Elements(ns + "button").ToArray();
-                Check(buttons.Length == 3, "Expected three buttons");
+                Check(buttons.Length == 7, "Expected three buttons");
                 Check((string?)buttons[0].Attribute("onAction") == "TestPlugin", "Test callback missing");
                 Check((string?)buttons[1].Attribute("onAction") == "OpenSettings", "Settings callback missing");
-                Check((string?)buttons[2].Attribute("enabled") == "false" && buttons[2].Attribute("onAction") == null, "Conference must be inert");
+                Check((string?)buttons[2].Attribute("getEnabled") == "GetCreateEnabled" && (string?)buttons[2].Attribute("onAction") == "CreateMeeting", "Conference binding");
+                Check(tab.Descendants(ns + "labelControl").Any(x => (string?)x.Attribute("getLabel") == "GetStatus"), "Status callback");
             }
             Check(ribbon.GetCustomUI("unknown") == "" && ribbon.GetCustomUI(null!) == "", "Unknown Ribbon ID");
             var lifecycle = (IDTExtensibility2)instance!;
@@ -148,7 +163,7 @@ internal static class Program
             lifecycle.OnAddInsUpdate(ref custom);
             lifecycle.OnBeginShutdown(ref custom);
             lifecycle.OnDisconnection(ext_DisconnectMode.ext_dm_HostShutdown, ref custom);
-            Console.WriteLine("PASS: COM activation, default IDispatch GetIDsOfNames/Invoke, image IPictureDisp, mock meeting editor boundary, host interfaces, Ribbon structure and lifecycle. Outlook not tested.");
+            Console.WriteLine("PASS: COM activation, default IDispatch GetIDsOfNames/Invoke, image IPictureDisp, guarded conference callback, host interfaces, Ribbon structure and lifecycle. Outlook not tested.");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }

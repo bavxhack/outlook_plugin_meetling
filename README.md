@@ -1,26 +1,24 @@
-# Meetling für Outlook Classic – lokale Basisversion
+# Meetling für Outlook Classic – Outlook-Plugin-API
 
-Klassisches COM-Add-in für .NET Framework 4.8, kein VSTO. ProgID
-`Meetling.OutlookAddIn`, CLSID `{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}`.
-Version 1.2.0.0. Unterstützt Outlook Classic unter Windows; das neue Outlook
-unterstützt dieses COM-Add-in nicht.
+Klassisches COM-Add-in für .NET Framework 4.8, Version 1.3.0.0.
+ProgID und CLSID sowie Logo und Kalenderbutton bleiben erhalten.
+Die aktive Konferenzaktion verwendet die dokumentierte Outlook-Plugin-API.
 
-In der **Kalenderübersicht → Start** steht neben **Neu** die Gruppe **Meetling**
-mit dem großen Button **Neues Meetling**. Das Symbol ist ausschließlich der
-vorderste grüne Würfel aus dem vom Nutzer gelieferten Meetling-SVG, mit den
-originalen Farben und transparenten Ecken. Es ist direkt in der DLL enthalten.
+Über **Einstellungen** eine HTTPS-Installationsadresse eintragen oder eine
+administrierte JSON-Konfiguration verteilen, dann **Anmelden**. Das sichtbare
+WebView2-Fenster verwendet den SSO-Anmeldeweg der Installation. Anschließend
+**Server aktualisieren** oder **Neues Meetling** wählen. Bei mehreren Servern
+muss die Auswahl bestätigt werden. Outlook-Entwürfe werden ergänzt, weder
+automatisch gespeichert noch versendet.
 
-Ein Klick öffnet eine neue native Outlook-Besprechung mit Teilnehmerfeldern,
-Datum/Uhrzeit, Terminplanungs-Assistent und einem **ausdrücklich als Mock
-gekennzeichneten Testlink** im Body. Der Link verwendet die nicht produktive
-Adresse `https://meetling.example.invalid/mock/…`; es wird keine echte Konferenz
-erstellt. Der Entwurf wird weder automatisch gespeichert noch versendet.
-Vorhandene Kalendereinträge werden nicht verändert. Server und API folgen später.
+Voraussetzung für Login: Microsoft Edge WebView2 Evergreen Runtime. COM-Laden
+und Diagnose funktionieren auch ohne Runtime. Sichere Tokenspeicherung mit DPAPI,
+GET-Logout ohne Browser, ProgramData-Konfiguration und bekannte Integrationsgrenzen
+sind in [API und Administration](docs/plugin-api.md) beschrieben.
 
-Der eigene Tab **Meetling** mit **Plugin testen** und **Einstellungen** bleibt
-als Diagnoseweg im Hauptfenster, Termin- und E-Mail-Verfassen-Fenster erhalten.
-Der bisherige allgemeine Konferenzbutton bleibt dort deaktiviert. Start, Ribbon
-und Mock-Erstellung benötigen keine Einstellungen, Zugangsdaten oder Netzwerkverbindung.
+SSO-Rückkehr und korrekte serverseitige Moderatorzuordnung sind ohne echte
+Installation **nicht live abgenommen**. Siehe [Prüfbericht](docs/verification.md)
+und [manuelle Abnahme](docs/smoke-test.md).
 
 ## Standardweg: ZIP und Windows PowerShell 5.1
 
@@ -119,26 +117,14 @@ Prozess mit dem .NET-Framework-Smoke-Harness aus. Dieser aktiviert die
 registrierte COM-Klasse, prüft die Hostinterfaces und ruft die Callbacknamen
 über echtes Standard-IDispatch (`GetIDsOfNames` und `Invoke`) auf. Nur die
 interne Dialogausgabe wird im Test ersetzt; keine CI-Dialoge. Zusätzlich prüft
-er XML-Struktur, drei Fensterkontexte, deaktivierte Konferenz und Lifecycle.
+er XML-Struktur, drei Fensterkontexte, zusätzliche Callbacks, DPAPI und Lifecycle.
 Zusätzlich prüft er den Bildcallback als echtes IPictureDisp, die Originalfarben
-und Transparenz des Würfels sowie den Mock-Entwurf an der Grenze zur nativen
-Outlook-UI. Die native Outlook-UI wird im CI nicht geöffnet. Core-Tests sind
-reine Logiktests, keine Outlook-Integrationstests.
+und Transparenz des Würfels. Die native Outlook-UI wird im CI nicht geöffnet.
+HTTP-Tests sind simuliert, keine Live-Integrationstests.
 
-**WiX/MSI ist ein nicht abgenommener alternativer Weg.** Der vorhandene Entwurf
-enthält weiterhin feste Versions-/Assemblyangaben, abweichenden Zielordner,
-keine Outlook-Interop-DLL und keine gleichwertigen Vorabprüfungen. Er wird in
-diesem Meilenstein weder ausgeliefert noch als Standardweg empfohlen.
+**WiX/MSI bleibt ein nicht abgenommener alternativer Weg.** Versionsangaben und
+Abhängigkeiten sind aktualisiert, der Standardweg liefert Architektur-ZIPs aus
+Actions; MSI ist nicht Bestandteil der zugesicherten Artefakte.
 
-## Prüfstatus und weitere Arbeit
-
-Ausgangsstand erneut geprüft: `main` / `c623582f61fcb165f5cb40338642bd5de3eab27d`.
-Bestätigte Codebefunde und verbleibende Grenzen:
-[docs/verification.md](docs/verification.md).
-Einen aktuellen erfolgreichen CI-Lauf und die konkrete Windows-/Outlook-Abnahme
-getrennt nachweisen. Eine erfolgreiche Kompilierung oder COM-Aktivierung belegt
-keine Ribbon-Anzeige in Outlook.
-
-Meetling-API, Serverauswahl und Änderungen vorhandener Termine/Nachrichten bleiben
-ausgeschaltet. Der neue Kalenderbutton öffnet nur einen Mock-Besprechungsentwurf. Der fachliche Ausbau beginnt erst nach Basisabnahme:
-[docs/roadmap.md](docs/roadmap.md).
+Der verifizierte Ausgangsstand ist `main` / `0ca8de3d9741af5378dde2989239e78e551b5066`.
+Siehe [Prüfbericht](docs/verification.md) und [Roadmap](docs/roadmap.md).
