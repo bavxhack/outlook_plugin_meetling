@@ -116,9 +116,9 @@ var meetlingHost = class extends ExtensionCommon.ExtensionAPI {
         const info = Cc["@mozilla.org/login-manager/loginInfo;1"].createInstance(Ci.nsILoginInfo);
         info.init(origin, null, realm, name, secret, "", "");
         const existing = (await logins(value))[0];
-        if (existing) Services.logins.modifyLogin(existing, info); else await Services.logins.addLoginAsync(info);
+        if (existing) await Services.logins.modifyLoginAsync(existing, info); else await Services.logins.addLoginAsync(info);
       },
-      async vaultDelete(value) { for (const entry of await logins(value)) Services.logins.removeLogin(entry); }
+      async vaultDelete(value) { for (const entry of await logins(value)) await Services.logins.removeLoginAsync(entry); }
     } };
   }
 };
