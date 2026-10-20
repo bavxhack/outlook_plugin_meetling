@@ -18,7 +18,7 @@ public sealed class MeetlingSettings
 }
 public sealed class EndpointSettings
 {
-    public string Login { get; set; } = "login";
+    public string Login { get; set; } = "outlooklogin";
     public string Servers { get; set; } = "server";
     public string CreateConference { get; set; } = "createConference";
     public string Logout { get; set; } = "logout";

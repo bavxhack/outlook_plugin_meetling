@@ -32,6 +32,10 @@ Kein automatischer Logout beim früheren Server.
 ## Anmeldung und Token
 
 „Anmelden“ öffnet ein eigenes sichtbares Edge-WebView2-Fenster erst nach Klick.
+Der Standard-Login-Endpunkt ist nun `/room/outlook/plugin/outlooklogin`
+(statt `/room/outlook/plugin/login`). Bei bestehenden Konfigurationsdateien
+`endpoints.login` auf `outlooklogin` setzen und die Konfiguration neu laden.
+Der Schlüssel `login` bleibt unverändert; nur sein Pfadwert ändert sich.
 Es navigiert zum konfigurierten Login-Endpunkt, erlaubt HTTPS-Weiterleitungen und
 MFA im gleichen Fenster und übernimmt nur dessen exakte JSON-Netzwerkantwort
 mittels WebResourceResponseReceived/GetContentAsync. Fremde Origins, abweichende

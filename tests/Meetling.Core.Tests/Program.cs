@@ -55,9 +55,10 @@ internal static class Program
             }
             foreach (var bad in new[] { "{}", "[{}]", "[{\"id\":null,\"name\":\"a\"}]", "[{\"id\":\"\",\"name\":\"a\"}]", "[{\"id\":\"10\",\"name\":\"a\"}]", "[{\"id\":1.5,\"name\":\"a\"}]", "[{\"id\":1,\"name\":\"a\"},{\"id\":1,\"name\":\"b\"}]" }) Reject(() => MeetlingApiClient.ParseServers(JToken.Parse(bad)), "invalid server schema");
             Check(MeetlingApiClient.ParseServers(JToken.Parse("[{\"id\":999999999999999999999999999999,\"name\":\"a\"}]"))[0].Id == "999999999999999999999999999999", "large ID lossless");
-            var expected = settings.Endpoint("login");
+            var expected = settings.Endpoint(settings.Endpoints.Login);
+            Check(expected.AbsoluteUri == "https://host.example/meetling/room/outlook/plugin/outlooklogin", "default Outlook login endpoint");
             Check(SettingsValidator.IsExpectedLogin(expected, expected.AbsoluteUri), "exact login");
-            foreach (var bad in new[] { "https://other.example/meetling/room/outlook/plugin/login", expected + "/", expected + "?x", expected + "#x", "http://host.example/meetling/room/outlook/plugin/login" }) Check(!SettingsValidator.IsExpectedLogin(expected, bad), "reject other login response");
+            foreach (var bad in new[] { "https://host.example/meetling/room/outlook/plugin/login", "https://other.example/meetling/room/outlook/plugin/outlooklogin", expected + "/", expected + "?x", expected + "#x", "http://host.example/meetling/room/outlook/plugin/outlooklogin" }) Check(!SettingsValidator.IsExpectedLogin(expected, bad), "reject other login response");
             Check(MeetlingApiClient.ParseLogin("{\"token\":\"opaque\",\"name\":\"Erika\"}").Name == "Erika", "login schema");
             foreach (var bad in new[] { "[]", "{}", "{\"token\":\" \",\"name\":\"a\"}", "{\"token\":123,\"name\":\"a\"}", "{\"token\":\"a\",\"name\":null}" }) Reject(() => MeetlingApiClient.ParseLogin(bad), "invalid login");
             var handler = new Handler(); using (var http = new HttpClient(handler))

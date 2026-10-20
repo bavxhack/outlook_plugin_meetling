@@ -2,7 +2,7 @@
   "baseUrl": "https://meetling.example.invalid/",
   "apiBasePath": "room/outlook/plugin/",
   "endpoints": {
-    "login": "login",
+    "login": "outlooklogin",
     "servers": "server",
     "createConference": "createConference",
     "logout": "logout"
