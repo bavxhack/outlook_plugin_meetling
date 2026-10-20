@@ -14,6 +14,9 @@ var smoke = class extends ExtensionCommon.ExtensionAPI {
           await wait(100);
         }
         if(!win?.setDefaultItemValues)throw Error("Main window not ready");
+        const {AddonManager}=ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+        const addon=await AddonManager.getAddonByID("meetling-thunderbird@h2-invent.com");
+        if(!addon?.isActive)throw Error("Packaged production XPI is not active");
         const {cal}=ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
         calendar=cal.manager.createCalendar("memory",Services.io.newURI("moz-memory-calendar://"));
         calendar.id=Services.uuid.generateUUID().toString();calendar.name="Meetling CI";

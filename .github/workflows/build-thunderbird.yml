@@ -41,7 +41,7 @@ jobs:
           PY
           tar -xJf /tmp/thunderbird.tar.xz -C /tmp
       - name: Native Kalender- und Passwortverwaltung prüfen
-        run: xvfb-run -a python thunderbird/tools/run_host_smoke.py --binary /tmp/thunderbird/thunderbird --result artifacts/thunderbird-host-smoke.json
+        run: xvfb-run -a python thunderbird/tools/run_host_smoke.py --binary /tmp/thunderbird/thunderbird --xpi artifacts/Meetling-Thunderbird-1.0.0.xpi --result artifacts/thunderbird-host-smoke.json
       - name: Installierbares XPI hochladen
         uses: actions/upload-artifact@v4
         with:

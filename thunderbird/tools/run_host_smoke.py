@@ -4,11 +4,13 @@ import argparse
 import json
 import os
 import subprocess
+import shutil
 import tempfile
 import zipfile
 p=argparse.ArgumentParser()
 p.add_argument('--binary',required=True)
 p.add_argument('--result',required=True)
+p.add_argument('--xpi',required=True)
 a=p.parse_args()
 root=Path(__file__).resolve().parents[1]
 result=Path(a.result).resolve()
@@ -17,6 +19,7 @@ if result.exists(): result.unlink()
 with tempfile.TemporaryDirectory(prefix='meetling-thunderbird-') as tmp:
     profile=Path(tmp)
     extensions=profile/'extensions';extensions.mkdir()
+    shutil.copyfile(a.xpi,extensions/'meetling-thunderbird@h2-invent.com.xpi')
     manifest={"manifest_version":2,"name":"Meetling CI harness","version":"1.0","browser_specific_settings":{"gecko":{"id":"meetling-ci@example.invalid","strict_min_version":"158.0"}},"background":{"scripts":["background.js"]},"experiment_apis":{"smoke":{"schema":"schema.json","parent":{"scopes":["addon_parent"],"paths":[["smoke"]],"script":"smoke.js"}}}}
     manifest['experiment_apis']['meetlingHost']=json.loads((root/'extension/manifest.json').read_text())['experiment_apis']['meetlingHost']
     with zipfile.ZipFile(extensions/'meetling-ci@example.invalid.xpi','w') as z:

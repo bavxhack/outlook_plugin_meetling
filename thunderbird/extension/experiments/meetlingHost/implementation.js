@@ -66,7 +66,7 @@ var meetlingHost = class extends ExtensionCommon.ExtensionAPI {
       if (!u.schemeIs("https") || u.userPass || u.query || u.ref) throw new Error("Ungültige Installation.");
       return u.spec;
     };
-    const logins = value => Services.logins.findLogins(origin, null, installation(value));
+    const logins = value => Services.logins.searchLoginsAsync({ origin, httpRealm: installation(value) });
     context.callOnClose({ close() {
       ExtensionSupport.unregisterWindowListener(listenerId);
       for (const [win, handler] of topWindows) win.removeEventListener("load", handler, true);
@@ -108,17 +108,17 @@ var meetlingHost = class extends ExtensionCommon.ExtensionAPI {
         return true;
       },
       async vaultGet(value) {
-        const found = logins(value)[0]; return found ? { token: found.password, name: found.username } : null;
+        const found = (await logins(value))[0]; return found ? { token: found.password, name: found.username } : null;
       },
       async vaultSet(value, secret, name) {
         if (!secret || /[\s\x00-\x1f\x7f]/.test(secret) || secret.length > 16384) throw new Error("Ungültiges Token.");
         const realm = installation(value);
         const info = Cc["@mozilla.org/login-manager/loginInfo;1"].createInstance(Ci.nsILoginInfo);
         info.init(origin, null, realm, name, secret, "", "");
-        const existing = logins(value)[0];
+        const existing = (await logins(value))[0];
         if (existing) Services.logins.modifyLogin(existing, info); else await Services.logins.addLoginAsync(info);
       },
-      async vaultDelete(value) { for (const entry of logins(value)) Services.logins.removeLogin(entry); }
+      async vaultDelete(value) { for (const entry of await logins(value)) Services.logins.removeLogin(entry); }
     } };
   }
 };
