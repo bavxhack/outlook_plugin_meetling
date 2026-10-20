@@ -1,0 +1,58 @@
+name: Thunderbird-Erweiterung erstellen
+on:
+  push:
+    branches: [main, codex/thunderbird-plugin]
+    paths: ['thunderbird/**', '.github/workflows/build-thunderbird.yml']
+  pull_request:
+    paths: ['thunderbird/**', '.github/workflows/build-thunderbird.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    name: API testen und XPI bauen
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: JavaScript-Syntax prüfen
+        run: find thunderbird -name '*.js' -o -name '*.cjs' | xargs -n1 node --check
+      - name: API- und Ablaufprüfungen
+        run: node --test thunderbird/tests/*.test.cjs
+      - name: XPI erstellen
+        run: python thunderbird/tools/package.py artifacts
+      - name: Thunderbird 140 ESR bereitstellen
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb libgtk-3-0 libdbus-glib-1-2 libasound2 libxt6
+          curl --fail --location --retry 3 https://archive.mozilla.org/pub/thunderbird/releases/140.0/linux-x86_64/en-US/thunderbird-140.0.tar.xz -o /tmp/thunderbird.tar.xz
+          curl --fail --location --retry 3 https://archive.mozilla.org/pub/thunderbird/releases/140.0/SHA512SUMS -o /tmp/THUNDERBIRD-SHA512SUMS
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          lines=Path('/tmp/THUNDERBIRD-SHA512SUMS').read_text().splitlines()
+          match=[line.split()[0] for line in lines if line.split()[-1]=='linux-x86_64/en-US/thunderbird-140.0.tar.xz']
+          assert len(match)==1 and hashlib.sha512(Path('/tmp/thunderbird.tar.xz').read_bytes()).hexdigest()==match[0]
+          PY
+          tar -xJf /tmp/thunderbird.tar.xz -C /tmp
+      - name: Native Kalender- und Passwortverwaltung prüfen
+        run: xvfb-run -a python thunderbird/tools/run_host_smoke.py --binary /tmp/thunderbird/thunderbird --result artifacts/thunderbird-host-smoke.json
+      - name: Installierbares XPI hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Meetling-Thunderbird
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fehlerdiagnose hochladen
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Thunderbird-Diagnose
+          path: artifacts/thunderbird-host-smoke.json
+          if-no-files-found: ignore

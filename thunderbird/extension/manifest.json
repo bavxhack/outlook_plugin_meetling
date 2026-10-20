@@ -1,0 +1,16 @@
+{
+  "manifest_version": 2,
+  "name": "Meetling für Thunderbird",
+  "version": "1.0.0",
+  "description": "Meetling-Konferenzen direkt in Thunderbird-Kalendertermine einfügen.",
+  "browser_specific_settings": { "gecko": { "id": "meetling-thunderbird@h2-invent.com", "strict_min_version": "140.0", "strict_max_version": "140.*" } },
+  "permissions": ["storage", "tabs", "webRequest", "webRequestBlocking", "https://*/*", "http://*/*"],
+  "background": { "scripts": ["core.js", "background.js"] },
+  "browser_action": { "default_title": "Meetling", "default_icon": "icon.svg" },
+  "options_ui": { "page": "panel.html?settings=1", "open_in_tab": true },
+  "icons": { "32": "icon.svg", "64": "icon.svg" },
+  "experiment_apis": { "meetlingHost": { "schema": "experiments/meetlingHost/schema.json", "parent": {
+    "scopes": ["addon_parent"], "paths": [["meetlingHost"]], "script": "experiments/meetlingHost/implementation.js"
+  } } },
+  "content_security_policy": "script-src 'self'; object-src 'none'; base-uri 'none'"
+}
