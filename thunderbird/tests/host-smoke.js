@@ -15,7 +15,7 @@ var smoke = class extends ExtensionCommon.ExtensionAPI {
         }
         if (!win?.setDefaultItemValues) throw Error("Main window not ready");
         const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
-        const manager=cal.manager.getCalendarManager();
+        const manager=cal.manager;
         const calendar=manager.createCalendar("memory",Services.io.newURI("moz-memory-calendar://"));
         calendar.id=Services.uuid.generateUUID().toString();calendar.name="Meetling CI";
         manager.registerCalendar(calendar);

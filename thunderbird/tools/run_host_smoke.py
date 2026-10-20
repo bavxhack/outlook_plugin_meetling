@@ -17,7 +17,7 @@ if result.exists(): result.unlink()
 with tempfile.TemporaryDirectory(prefix='meetling-thunderbird-') as tmp:
     profile=Path(tmp)
     extensions=profile/'extensions';extensions.mkdir()
-    manifest={"manifest_version":2,"name":"Meetling CI harness","version":"1.0","browser_specific_settings":{"gecko":{"id":"meetling-ci@example.invalid","strict_min_version":"140.0"}},"background":{"scripts":["background.js"]},"experiment_apis":{"smoke":{"schema":"schema.json","parent":{"scopes":["addon_parent"],"paths":[["smoke"]],"script":"smoke.js"}}}}
+    manifest={"manifest_version":2,"name":"Meetling CI harness","version":"1.0","browser_specific_settings":{"gecko":{"id":"meetling-ci@example.invalid","strict_min_version":"158.0"}},"background":{"scripts":["background.js"]},"experiment_apis":{"smoke":{"schema":"schema.json","parent":{"scopes":["addon_parent"],"paths":[["smoke"]],"script":"smoke.js"}}}}
     with zipfile.ZipFile(extensions/'meetling-ci@example.invalid.xpi','w') as z:
         z.writestr('manifest.json',json.dumps(manifest))
         z.writestr('schema.json',json.dumps([{"namespace":"smoke","functions":[{"name":"run","type":"function","async":True,"parameters":[]}]}]))

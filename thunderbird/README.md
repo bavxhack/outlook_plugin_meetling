@@ -1,6 +1,6 @@
 # Meetling für Thunderbird
 
-Thunderbird-Erweiterung für dieselbe Meetling-API wie das Outlook-Plugin. Zielversion der ersten Ausgabe: **Thunderbird 140 ESR**, Windows/Linux/macOS. Ein XPI für alle Architekturen. Andere Hauptversionen sind bis zur Prüfung bewusst nicht freigeschaltet.
+Thunderbird-Erweiterung für dieselbe Meetling-API wie das Outlook-Plugin. Zielversion der ersten Ausgabe: **Thunderbird 158**, Windows/Linux/macOS. Ein XPI für alle Architekturen. Andere Hauptversionen sind bis zur Prüfung bewusst nicht freigeschaltet.
 
 ## Installation und Verwendung
 
@@ -45,6 +45,6 @@ Login: GET `/room/outlook/plugin/outlooklogin`. Serverliste: GET `/api/v1/outloo
 
 `python thunderbird/tools/package.py`
 
-Die Actions führen die API-/Zustandstests aus, bauen ein reproduzierbares XPI mit SHA-256-Prüfsumme und prüfen den Kalenderadapter in einem echten Thunderbird 140 unter Xvfb. Der Test benutzt ein frisches Profil und synthetische Daten, keinen produktiven Meetling-Account. SSO/OTP und der vollständige Ablauf gegen eine echte Installation müssen anschließend manuell geprüft werden.
+Die Actions führen die API-/Zustandstests aus, bauen ein reproduzierbares XPI mit SHA-256-Prüfsumme und prüfen den Kalenderadapter in einem echten Thunderbird 158 unter Xvfb. Der Test benutzt ein frisches Profil und synthetische Daten, keinen produktiven Meetling-Account. SSO/OTP und der vollständige Ablauf gegen eine echte Installation müssen anschließend manuell geprüft werden.
 
 Technische Quellen: [Thunderbird Experiments](https://developer.thunderbird.net/add-ons/mailextensions/experiments), [Thunderbird Kalender-Quellcode](https://github.com/mozilla/releases-comm-central/tree/master/calendar/base/content/item-editing), [WebRequest](https://webextension-api.thunderbird.net/en/esr-mv2/webRequest.html), [Meetling API](https://github.com/H2-invent/jitsi-admin/wiki/Outlook-Plugin-API-Doku).
