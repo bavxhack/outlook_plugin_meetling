@@ -18,7 +18,7 @@ public static class SettingsValidator
     }
     public static void ValidateToken(string token)
     {
-        if (string.IsNullOrWhiteSpace(token) || token.IndexOfAny(new[] { '\r', '\n', '\0' }) >= 0)
+        if (string.IsNullOrWhiteSpace(token) || Array.Exists(token.ToCharArray(), char.IsControl))
             throw new ArgumentException("Das Anmeldetoken ist leer oder ungültig.");
     }
     public static bool IsExpectedLogin(Uri expected, string candidate)

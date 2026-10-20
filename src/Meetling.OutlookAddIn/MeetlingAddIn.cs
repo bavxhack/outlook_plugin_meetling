@@ -16,6 +16,7 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
 {
     // No settings, filesystem or network work in the constructor.
     private object? application;
+    private bool shuttingDown;
     private PluginController? controller;
     private Interop.IRibbonUI? ribbon;
     private PluginController Controller
@@ -29,9 +30,13 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
     private async void Run(Func<Task> operation)
     {
         try { await operation(); }
-        catch (Exception ex) { DiagnosticLog.Write("Meetling-Aktion fehlgeschlagen", ex); LocalDialog.Show("Die Aktion konnte nicht abgeschlossen werden. Bitte die Einstellungen und den Anmeldestatus prüfen."); }
+        catch (Exception ex) { DiagnosticLog.Write("Meetling-Aktion fehlgeschlagen", ex); if (!shuttingDown) LocalDialog.Show("Die Aktion konnte nicht abgeschlossen werden. Bitte die Einstellungen und den Anmeldestatus prüfen."); }
     }
-    public void RibbonLoaded(object ui) { ribbon = ui as Interop.IRibbonUI; }
+    public void RibbonLoaded(object ui)
+    {
+        ribbon = ui as Interop.IRibbonUI;
+        try { if (application != null) { _ = Controller; ribbon?.Invalidate(); } } catch (Exception ex) { DiagnosticLog.Write("Ribbon initialization", ex); }
+    }
     public string GetStatus(object control) => controller?.Status ?? "Konfiguration und Anmeldung über Einstellungen / Anmelden prüfen.";
     public bool GetCreateEnabled(object control) => controller?.CanCreate ?? false;
     public bool GetLoginEnabled(object control) => controller?.CanLogin ?? true;
@@ -98,12 +103,12 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
 
     public void OnConnection(object app, ext_ConnectMode connectMode, object addInInstance, ref Array custom)
     {
-        try { application = app; if (System.Threading.SynchronizationContext.Current == null) System.Threading.SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext()); DiagnosticLog.WriteInfo("OnConnection ConnectMode=" + connectMode); }
+        try { shuttingDown = false; application = app; if (System.Threading.SynchronizationContext.Current == null) System.Threading.SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext()); DiagnosticLog.WriteInfo("OnConnection ConnectMode=" + connectMode); }
         catch (Exception ex) { DiagnosticLog.Write("OnConnection failed", ex); }
     }
 
     public void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom)
-    { controller?.Dispose(); controller = null; ribbon = null; application = null; DiagnosticLog.WriteInfo("OnDisconnection RemoveMode=" + removeMode); }
+    { shuttingDown = true; controller?.Dispose(); controller = null; ribbon = null; application = null; DiagnosticLog.WriteInfo("OnDisconnection RemoveMode=" + removeMode); }
     public void OnAddInsUpdate(ref Array custom) => DiagnosticLog.WriteInfo("OnAddInsUpdate");
     public void OnStartupComplete(ref Array custom)
     {
@@ -112,7 +117,7 @@ public sealed class MeetlingAddIn : IDTExtensibility2, Office.IRibbonExtensibili
         try { _ = Controller; ribbon?.Invalidate(); } catch (Exception ex) { DiagnosticLog.Write("Configuration initialization failed", ex); }
     }
     public void OnBeginShutdown(ref Array custom)
-    { controller?.Dispose(); controller = null; ribbon = null; application = null; DiagnosticLog.WriteInfo("OnBeginShutdown"); }
+    { shuttingDown = true; controller?.Dispose(); controller = null; ribbon = null; application = null; DiagnosticLog.WriteInfo("OnBeginShutdown"); }
 
     // Calendar Home, existing callback and image DISPIDs preserved.
     private const string CalendarTabXml = @"<tab idMso='TabCalendar'>

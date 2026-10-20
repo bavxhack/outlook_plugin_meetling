@@ -18,7 +18,9 @@ internal sealed class PluginController : IDisposable
     private LoginResult? login;
     private IReadOnlyList<Server>? servers;
     private DateTime serversLoaded;
-    private bool busy, signingIn, disposed;
+    private readonly OperationGate operations = new OperationGate();
+    private bool busy { get => operations.Busy; set { if (value) operations.TryEnter(); else operations.Release(); } }
+    private bool signingIn, disposed;
     internal string Status { get; private set; } = "Nicht angemeldet.";
     internal bool CanCreate => !disposed && !busy && !signingIn && configuration.Settings != null && login != null;
     internal bool CanLogin => !disposed && !busy && !signingIn && configuration.Settings != null;
@@ -113,14 +115,14 @@ internal sealed class PluginController : IDisposable
             using (var http = MeetlingApiClient.CreateHttpClient(settings)) result = await new MeetlingApiClient(http).CreateConferenceAsync(settings, token, server.Id, ct);
             await ui.InvokeAsync(() =>
             {
-                if (!epoch.IsCurrent(version)) return;
+                if (!epoch.IsCurrent(version)) { if (!disposed) ShowLink(result.Url); return; }
                 try { target.Apply(result); SetStatus("Angemeldet als " + login!.Name); }
                 catch (Exception) { ShowLink(result.Url); }
             });
         }
         catch (Exception ex)
         {
-            if (result != null) await ui.InvokeAsync(() => ShowLink(result.Url));
+            if (result != null) await ui.InvokeAsync(() => { if (!disposed) ShowLink(result.Url); });
             else await Error(version, ex, requested ? "Erstellung fehlgeschlagen oder Ausgang unklar. Der Raum kann bereits existieren. Kein automatischer Wiederholungsversuch." : "Konferenz konnte nicht vorbereitet werden.");
         }
         finally { await ui.InvokeAsync(() => { target?.Dispose(); if (epoch.IsCurrent(version)) { busy = false; if (Status == "Server werden geladen." || Status == "Konferenz wird erstellt.") SetStatus(login == null ? "Nicht angemeldet." : "Angemeldet als " + login.Name); Changed?.Invoke(); } }); }
@@ -174,6 +176,7 @@ internal sealed class PluginController : IDisposable
             try { if (configuration.Settings != null) tokens.Delete(configuration.Settings.Installation); } catch (Exception) { }
             SetStatus("Anmeldung nicht mehr gültig. Bitte erneut anmelden.");
         }
+        if (!(ex is MeetlingApiException apiError && apiError.InvalidToken)) SetStatus(context);
         DiagnosticLog.Write(context, ex);
         LocalDialog.Show(context + (ex is MeetlingApiException || ex is InvalidOperationException ? "\n" + ex.Message : ""));
     });

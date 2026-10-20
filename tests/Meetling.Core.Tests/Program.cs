@@ -86,6 +86,7 @@ internal static class Program
                 File.Delete(managed); Check(store.Load().Settings!.Installation == settings.Installation, "fallback after removal");
             }
             finally { Directory.Delete(dir, true); }
+            var gate = new OperationGate(); Check(gate.TryEnter() && gate.Busy, "first operation admitted"); Check(!gate.TryEnter(), "double click blocked"); gate.Release(); Check(gate.TryEnter(), "next operation after completion"); gate.Release();
             var epoch = new SessionEpoch(); int old = epoch.Value; epoch.Advance(); Check(!epoch.IsCurrent(old), "stale response discarded");
             Console.WriteLine("PASS: " + checks + " API/configuration/session checks. HTTP simulated; live integration not tested."); return 0;
         }

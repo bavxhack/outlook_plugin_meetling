@@ -23,6 +23,12 @@ internal sealed class LoginWindow : Form
         Text = "Meetling – Anmelden"; Width = 900; Height = 720; Controls.Add(browser);
         FormClosed += (s,e) => { finished = true; timeout.Stop(); completion.TrySetResult(null); };
         timeout.Tick += (s,e) => Fail("Die Anmeldung wurde nach fünf Minuten beendet.");
+        Shown += async (s,e) =>
+        {
+            timeout.Start();
+            try { await Initialize(); }
+            catch (Exception) { if (!finished) Fail("Browser-Anmeldung nicht verfügbar. Bitte Microsoft Edge WebView2 Evergreen Runtime installieren oder die Installation prüfen."); }
+        };
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal static async Task<LoginResult?> SignInAsync(Uri endpoint, CancellationToken ct)
@@ -31,7 +37,6 @@ internal sealed class LoginWindow : Form
         using (ct.Register(() => { try { if (form.IsHandleCreated) form.BeginInvoke((Action)(() => form.Close())); } catch (InvalidOperationException) { } }))
         {
             form.Show();
-            try { await form.Initialize(); } catch (Exception) { if (!form.finished) form.Fail("Browser-Anmeldung nicht verfügbar. Bitte Microsoft Edge WebView2 Evergreen Runtime installieren oder die Installation prüfen."); }
             return await form.completion.Task;
         }
     }
@@ -46,7 +51,7 @@ internal sealed class LoginWindow : Form
         browser.CoreWebView2.NewWindowRequested += (s,e) => { e.Handled = true; MessageBox.Show(this, "Bitte den Anmeldeprozess im geöffneten Fenster verwenden. Popup-Anmeldungen benötigen eine Prüfung durch Ihre Organisation.", "Meetling"); };
         browser.CoreWebView2.NavigationStarting += (s,e) => { if (!Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps) e.Cancel = true; };
         browser.CoreWebView2.WebResourceResponseReceived += Response;
-        timeout.Start(); browser.CoreWebView2.Navigate(expected.AbsoluteUri);
+        browser.CoreWebView2.Navigate(expected.AbsoluteUri);
     }
     private async void Response(object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
     {

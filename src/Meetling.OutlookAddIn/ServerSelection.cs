@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -6,10 +7,15 @@ using Meetling.Core;
 namespace Meetling.OutlookAddIn;
 internal static class ServerSelection
 {
+    internal static Func<IReadOnlyList<Server>, Server?> Confirm = ShowDialog;
     internal static Server? Choose(IReadOnlyList<Server> servers)
     {
         if (servers.Count == 0) { LocalDialog.Show("Keine Server verfügbar."); return null; }
         if (servers.Count == 1) return servers[0];
+        return Confirm(servers);
+    }
+    private static Server? ShowDialog(IReadOnlyList<Server> servers)
+    {
         using (var form = new Form { Text = "Meetling – Server auswählen", ClientSize = new Size(500, 115), StartPosition = FormStartPosition.CenterScreen })
         {
             var combo = new ComboBox { Left = 15, Top = 15, Width = 470, DropDownStyle = ComboBoxStyle.DropDownList };

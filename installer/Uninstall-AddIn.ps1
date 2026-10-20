@@ -37,7 +37,7 @@ $target = Join-Path $env:LOCALAPPDATA "Meetling\OutlookAddIn\$OutlookBitness"
 # Remove only known shipped binaries, preserving any settings and unrelated files.
 if (Test-Path $target) {
     Get-ChildItem $target -Recurse -File |
-        Where-Object { $_.Name -in @('Meetling.OutlookAddIn.dll', 'Meetling.Core.dll', 'Microsoft.Office.Interop.Outlook.dll') } |
+        Where-Object { $_.Name -in @('Meetling.OutlookAddIn.dll', 'Meetling.Core.dll', 'Microsoft.Office.Interop.Outlook.dll', 'Newtonsoft.Json.dll', 'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll', 'Microsoft.Web.WebView2.Wpf.dll', 'WebView2Loader.dll') } |
         Remove-Item -Force
 }
 Write-Host 'Meetling wurde für den aktuellen Benutzer deinstalliert.'

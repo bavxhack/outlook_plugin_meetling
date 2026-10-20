@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Xml.Linq;
 using Meetling.OutlookAddIn;
@@ -70,6 +71,19 @@ internal static class Program
                 var ids = new int[1]; Marshal.ThrowExceptionForHR(names(dispatchPointer, ref iid, new[] { pair.Name }, 1, 0, ids));
                 Check(ids[0] == pair.Id, "New callback DISPID changed");
             }
+            int confirmations = 0;
+            ServerSelection.Confirm = list => { confirmations++; return list.Single(x => x.Id == "20"); };
+            var empty = new List<Meetling.Core.Server>();
+            Check(ServerSelection.Choose(empty) == null && confirmations == 0, "Zero servers");
+            var one = new[] { new Meetling.Core.Server("10", "Same") };
+            Check(ServerSelection.Choose(one)?.Id == "10" && confirmations == 0, "Single server automatic");
+            var two = new[] { one[0], new Meetling.Core.Server("20", "Same") };
+            Check(ServerSelection.Choose(two)?.Id == "20" && confirmations == 1, "Confirm ID independent of name");
+            var many = new[] { two[1], new Meetling.Core.Server("30", "A"), two[0] };
+            Check(ServerSelection.Choose(many)?.Id == "20" && confirmations == 2, "Many servers selection");
+            ServerSelection.Confirm = list => null;
+            Check(ServerSelection.Choose(two) == null, "Cancel has no selected server");
+            Check(!AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name!.StartsWith("Microsoft.Web.WebView2")), "WebView2 must remain unloaded without login click");
             // DPAPI round trip, restart reuse and installation binding (standard user).
             var tokenStore = new TokenStore();
             var installation = "https://token-test.example.invalid/" + Guid.NewGuid().ToString("N") + "/";

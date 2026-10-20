@@ -41,9 +41,9 @@ internal sealed class AppointmentTarget : IDisposable
     private void EnsureNoConference()
     {
         dynamic properties = ((dynamic)item!).UserProperties;
-        object? link = null;
-        try { link = properties.Find(AppointmentRules.ParticipantLinkProperty, true); if (link != null && !string.IsNullOrWhiteSpace((string)((dynamic)link).Value)) throw new InvalidOperationException("Dieses Element enthält bereits eine Meetling-Konferenz."); }
-        finally { Release(link); Release(properties); }
+        object? link = null; object? legacyUid = null;
+        try { legacyUid = properties.Find(AppointmentRules.UidProperty, true); if (legacyUid != null && !string.IsNullOrWhiteSpace((string)((dynamic)legacyUid).Value)) throw new InvalidOperationException("Dieses Element enthält bereits eine Meetling-Konferenz."); link = properties.Find(AppointmentRules.ParticipantLinkProperty, true); if (link != null && !string.IsNullOrWhiteSpace((string)((dynamic)link).Value)) throw new InvalidOperationException("Dieses Element enthält bereits eine Meetling-Konferenz."); }
+        finally { Release(legacyUid); Release(link); Release(properties); }
     }
     internal void MarkPending()
     {
@@ -62,10 +62,11 @@ internal sealed class AppointmentTarget : IDisposable
     internal void Apply(ConferenceResult conference)
     {
         EnsureEditable(); EnsureNoConference();
-        dynamic editor = inspector!.WordEditor; object? range = null;
+        dynamic editor = inspector!.WordEditor; object? range = null; object? content = null;
         try
         {
-            int end = (int)editor.Content.End - 1;
+            content = editor.Content;
+            int end = (int)((dynamic)content).End - 1;
             range = editor.Range(end, end);
             ((dynamic)range).InsertAfter("\r\rMeetling-Konferenz\rTeilnehmen: " + conference.Url + "\r");
             dynamic properties = ((dynamic)item!).UserProperties; object? link = null;
@@ -73,7 +74,7 @@ internal sealed class AppointmentTarget : IDisposable
             finally { Release(link); Release(properties); }
             if (newItem) ((Outlook.AppointmentItem)item!).Subject = conference.Title;
         }
-        finally { Release(range); Release(editor); }
+        finally { Release(range); Release(content); Release(editor); }
         // No Save or Send. Native fields and formatting remain owned by Outlook/user.
     }
     public void Dispose() { Release(inspector); Release(item); inspector = null; item = null; }
