@@ -8,8 +8,7 @@ internal sealed class AppointmentTarget : IDisposable
 {
     private object? item;
     private Outlook.Inspector? inspector;
-    private readonly bool newItem;
-    private AppointmentTarget(object item, Outlook.Inspector inspector, bool newItem) { this.item = item; this.inspector = inspector; this.newItem = newItem; }
+    private AppointmentTarget(object item, Outlook.Inspector inspector) { this.item = item; this.inspector = inspector; }
     internal static AppointmentTarget Capture(object? application, object? control)
     {
         if (!(application is Outlook.Application outlook)) throw new InvalidOperationException("Outlook ist nicht verbunden.");
@@ -22,13 +21,13 @@ internal sealed class AppointmentTarget : IDisposable
         {
             object item = inspector.CurrentItem;
             if (!(item is Outlook.AppointmentItem) && !(item is Outlook.MailItem mail && !mail.Sent)) throw new InvalidOperationException("Bitte einen bearbeitbaren Termin oder E-Mail-Entwurf öffnen.");
-            var target = new AppointmentTarget(item, inspector, false);
+            var target = new AppointmentTarget(item, inspector);
             try { target.EnsureEditable(); target.EnsureNoConference(); return target; } catch { target.Dispose(); throw; }
         }
         var appointment = (Outlook.AppointmentItem)outlook.CreateItem(Outlook.OlItemType.olAppointmentItem);
         appointment.MeetingStatus = Outlook.OlMeetingStatus.olMeeting;
         appointment.Display(false);
-        return new AppointmentTarget(appointment, appointment.GetInspector, true);
+        return new AppointmentTarget(appointment, appointment.GetInspector);
     }
     private void EnsureEditable()
     {
@@ -77,7 +76,6 @@ internal sealed class AppointmentTarget : IDisposable
             dynamic properties = ((dynamic)item!).UserProperties; object? link = null;
             try { link = properties.Find(AppointmentRules.ParticipantLinkProperty, true) ?? properties.Add(AppointmentRules.ParticipantLinkProperty, Outlook.OlUserPropertyType.olText, false); ((dynamic)link).Value = conference.Url; }
             finally { Release(link); Release(properties); }
-            if (newItem) ((Outlook.AppointmentItem)item!).Subject = conference.Title;
         }
         finally { Release(range); Release(content); Release(editor); }
         // No Save or Send. Native fields and formatting remain owned by Outlook/user.

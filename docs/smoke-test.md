@@ -34,7 +34,10 @@ Keine Secrets protokollieren.
    Outlook neu starten: keine automatische Browseröffnung, Token wird sicher
    wiederverwendet; Server aktualisieren. Serverlisten mit 0/1/2/>2 Einträgen,
    gleichen Namen, Sortierung, ID-Auswahl und Abbruch prüfen.
-6. Neues Meetling aus Kalender: nativer Besprechungsentwurf. Termin-Inspector
+6. Neues Meetling aus Kalender: nativer Besprechungsentwurf mit leerem Betreff,
+   auch wenn die API einen Konferenznamen liefert. Teilnahme- und Moderatorlink
+   im Body prüfen. Während der API-Anfrage einen eigenen Betreff eingeben;
+   dieser muss nach Abschluss erhalten bleiben. Termin-Inspector
    sowie Mail-Compose: vorhandenes Element ergänzen. Während Netzwerkaktivität
    aktives Fenster wechseln, schließen, doppelklicken; nur erfasstes Ziel darf
    ergänzt werden, kein zweiter Raum durch Doppelklick. Keine automatische
