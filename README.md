@@ -1,6 +1,6 @@
 # Meetling für Outlook Classic – Outlook-Plugin-API
 
-Klassisches COM-Add-in für .NET Framework 4.8, Version 1.3.6.0.
+Klassisches COM-Add-in für .NET Framework 4.8, Version 1.3.7.0.
 ProgID und CLSID sowie Logo und Kalenderbutton bleiben erhalten.
 Die aktive Konferenzaktion verwendet die dokumentierte Outlook-Plugin-API.
 
@@ -22,6 +22,10 @@ unter dem Teilnahmelink einen Bearbeitungslink mit „nur für Moderatoren“ au
 zurückgegebenen Konferenz-ID. Beide Links sind native Outlook-/Word-Hyperlinks.
 Neue Darstellung und Links sind nach Installation manuell zu prüfen; siehe
 [Prüfbericht](docs/verification.md) und [manuelle Abnahme](docs/smoke-test.md).
+
+Version 1.3.7 übernimmt auch zurückgegebene HTTP-Konferenzlinks. Damit werden
+bei solchen Antworten die Einwahlnummern und der Einwahl-PIN ebenfalls eingefügt.
+API-Verbindung und Anmeldung verlangen weiterhin HTTPS.
 
 ## Standardweg: ZIP und Windows PowerShell 5.1
 
