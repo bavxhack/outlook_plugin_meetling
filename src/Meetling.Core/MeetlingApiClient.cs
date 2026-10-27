@@ -127,8 +127,11 @@ public sealed class MeetlingApiClient
         var phoneNumbers = new List<KeyValuePair<string, string>>();
         if (numbers != null)
             foreach (var number in numbers.Properties())
-                if (!string.IsNullOrWhiteSpace(number.Name) && number.Value.Type == JTokenType.String && !string.IsNullOrWhiteSpace((string?)number.Value))
-                    phoneNumbers.Add(new KeyValuePair<string, string>(number.Name, ((string)number.Value).Trim()));
+            {
+                var value = number.Value.Type == JTokenType.String ? (string?)number.Value : null;
+                if (!string.IsNullOrWhiteSpace(number.Name) && value != null && !string.IsNullOrWhiteSpace(value))
+                    phoneNumbers.Add(new KeyValuePair<string, string>(number.Name, value.Trim()));
+            }
         // Keep the PIN as a string so leading zeroes are retained.
         string? pin = phone?["dialIn"]?.Type == JTokenType.String ? ((string?)phone["dialIn"])?.Trim() : null;
         if (string.IsNullOrWhiteSpace(pin)) pin = null;
