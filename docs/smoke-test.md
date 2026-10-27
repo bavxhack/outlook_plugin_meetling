@@ -38,7 +38,9 @@ Keine Secrets protokollieren.
    auch wenn die API einen Konferenznamen liefert. Teilnahme- und Moderatorlink
    im Body prüfen. Ort muss „Meetling Konferenz“ sein, auch im vorhandenen Termin.
    Antwort mit `phone.numbers.numbers` (DE und CH) und `phone.dialIn` prüfen:
-   beide Länder/Nummern und Einwahl-PIN müssen in Einladung und Übernahmedialog
+   Zusätzlich die gemeldete Antwort mit `http://localhost:8000/myRoom/start/...`
+   und PIN `207632` prüfen: HTTP-Konferenzlink muss unverändert eingefügt werden.
+   Beide Länder/Nummern und Einwahl-PIN müssen in Einladung und Übernahmedialog
    erscheinen, auch bei `numbersEnabled: false`. PIN mit führenden Nullen,
    fehlende Telefondaten, nur Nummern und nur PIN ebenfalls prüfen.
    Mailentwürfe erhalten die Telefondaten im Body. Während der API-Anfrage einen eigenen Betreff eingeben;
