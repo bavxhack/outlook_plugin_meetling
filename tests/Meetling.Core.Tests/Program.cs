@@ -133,6 +133,23 @@ internal static class Program
                 handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\"}]"));
                 var legacyConference = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
                 Check(legacyConference.ModeratorEditUrl == null && !legacyConference.BodyText.Contains("dashboard"), "missing ID retains participant link without invented ID");
+                Check(legacyConference.PhoneNumbers.Count == 0 && legacyConference.DialInPin == null && !legacyConference.BodyText.Contains("Einwahl"), "legacy response has no empty phone section");
+                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://example.test/example-room/room-uid-42\",\"title\":\"Testkonferenz\",\"id\":32,\"phone\":{\"numbers\":{\"message\":\"Einwahlnummern\",\"numbers\":{\"DE\":\"04122/012345\",\"CH\":\"04122/012345\"},\"numbersEnabled\":false},\"dialIn\":\"12345678\"}}]"));
+                var dialIn = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
+                Check(dialIn.PhoneNumbers.Count == 2 && dialIn.DialInPin == "12345678", "all supplied phone numbers and PIN parsed even when numbersEnabled is false");
+                Check(dialIn.BodyText.Contains("Einwahlnummern:\rDE: 04122/012345\rCH: 04122/012345\r") && dialIn.BodyText.Contains("Einwahl-PIN: 12345678\r"), "invitation lists each country and the PIN");
+                Check(dialIn.BodyText.Contains(dialIn.Url) && dialIn.BodyText.Contains(dialIn.ModeratorEditUrl!), "phone details retain both conference links");
+                foreach (var phone in new[] { "null", "{}", "[]", "{\"numbers\":null}", "{\"numbers\":{\"numbers\":{\"DE\":null,\"CH\":42,\"AT\":\" \"}},\"dialIn\":{}}" })
+                {
+                    handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"phone\":" + phone + "}]"));
+                    var noPhone = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
+                    Check(noPhone.Url == "https://host.example/room" && !noPhone.BodyText.Contains("Einwahl"), "invalid optional phone data retains created room without empty sections");
+                }
+                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"phone\":{\"dialIn\":\"001234\"}}]"));
+                Check((await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None)).BodyText.Contains("Einwahl-PIN: 001234\r"), "PIN leading zeroes retained without phone numbers");
+                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"phone\":{\"numbers\":{\"numbers\":{\"DE\":\"04122/012345\"},\"numbersEnabled\":true}}}]"));
+                var numberOnly = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
+                Check(numberOnly.BodyText.Contains("DE: 04122/012345\r") && !numberOnly.BodyText.Contains("Einwahl-PIN"), "numbers without PIN remain visible");
                 foreach (var bad in new[] { "{}", "[]", "[{},{}]", "[{\"url\":\"http://host/a\",\"title\":\"a\"}]", "[{\"url\":\"https://host/a\",\"title\":\"\"}]" }) { handler.Respond = _ => Task.FromResult(Json(bad)); await RejectAsync(() => api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None), "invalid conference"); }
                 handler.Respond = _ => Task.FromResult(Json("{\"token\":null}")); await api.LogoutAsync(settings, "token", CancellationToken.None); checks++;
                 handler.Respond = _ => Task.FromResult(Json("{}")); await RejectAsync(() => api.LogoutAsync(settings, "token", CancellationToken.None), "unconfirmed logout");

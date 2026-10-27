@@ -36,7 +36,12 @@ Keine Secrets protokollieren.
    gleichen Namen, Sortierung, ID-Auswahl und Abbruch prüfen.
 6. Neues Meetling aus Kalender: nativer Besprechungsentwurf mit leerem Betreff,
    auch wenn die API einen Konferenznamen liefert. Teilnahme- und Moderatorlink
-   im Body prüfen. Während der API-Anfrage einen eigenen Betreff eingeben;
+   im Body prüfen. Ort muss „Meetling Konferenz“ sein, auch im vorhandenen Termin.
+   Antwort mit `phone.numbers.numbers` (DE und CH) und `phone.dialIn` prüfen:
+   beide Länder/Nummern und Einwahl-PIN müssen in Einladung und Übernahmedialog
+   erscheinen, auch bei `numbersEnabled: false`. PIN mit führenden Nullen,
+   fehlende Telefondaten, nur Nummern und nur PIN ebenfalls prüfen.
+   Mailentwürfe erhalten die Telefondaten im Body. Während der API-Anfrage einen eigenen Betreff eingeben;
    dieser muss nach Abschluss erhalten bleiben. Termin-Inspector
    sowie Mail-Compose: vorhandenes Element ergänzen. Während Netzwerkaktivität
    aktives Fenster wechseln, schließen, doppelklicken; nur erfasstes Ziel darf

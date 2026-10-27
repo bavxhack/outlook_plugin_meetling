@@ -76,6 +76,7 @@ internal sealed class AppointmentTarget : IDisposable
             dynamic properties = ((dynamic)item!).UserProperties; object? link = null;
             try { link = properties.Find(AppointmentRules.ParticipantLinkProperty, true) ?? properties.Add(AppointmentRules.ParticipantLinkProperty, Outlook.OlUserPropertyType.olText, false); ((dynamic)link).Value = conference.Url; }
             finally { Release(link); Release(properties); }
+            if (item is Outlook.AppointmentItem appointment) appointment.Location = "Meetling Konferenz";
         }
         finally { Release(range); Release(content); Release(editor); }
         // No Save or Send. Native fields and formatting remain owned by Outlook/user.

@@ -121,7 +121,21 @@ public sealed class MeetlingApiClient
         if (id == null || id.Length == 0 || !System.Linq.Enumerable.All(id, c => c >= '0' && c <= '9') || !System.Linq.Enumerable.Any(id, c => c != '0')) id = null;
         string? editUrl = id == null ? null : settings.Installation + "room/dashboard?editConference_id=" + Uri.EscapeDataString(id);
         if (id == null) Trace("ApiRequest create missing-or-invalid-conference-id");
-        return new ConferenceResult(url, title, id, editUrl);
+        // Phone data is optional: older or incomplete responses must not discard a created room.
+        var phone = array[0]["phone"] as JObject;
+        var numbers = (phone?["numbers"] as JObject)?["numbers"] as JObject;
+        var phoneNumbers = new List<KeyValuePair<string, string>>();
+        if (numbers != null)
+            foreach (var number in numbers.Properties())
+            {
+                var value = number.Value.Type == JTokenType.String ? (string?)number.Value : null;
+                if (!string.IsNullOrWhiteSpace(number.Name) && value != null && !string.IsNullOrWhiteSpace(value))
+                    phoneNumbers.Add(new KeyValuePair<string, string>(number.Name, value.Trim()));
+            }
+        // Keep the PIN as a string so leading zeroes are retained.
+        string? pin = phone?["dialIn"]?.Type == JTokenType.String ? ((string?)phone["dialIn"])?.Trim() : null;
+        if (string.IsNullOrWhiteSpace(pin)) pin = null;
+        return new ConferenceResult(url, title, id, editUrl, phoneNumbers, pin);
     }
     public async Task LogoutAsync(MeetlingSettings settings, string token, CancellationToken ct)
     {
