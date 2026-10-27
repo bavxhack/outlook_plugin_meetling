@@ -179,7 +179,14 @@ Servern ist eine bestätigte Auswahl erforderlich. Namen und numerische IDs sind
 getrennt, IDs erscheinen zusätzlich im Dialog. Große Ganzzahlen bleiben exakt;
 String-IDs werden bewusst abgewiesen. Abbruch sendet keinen Create-Request.
 
-Konferenzantwort muss genau ein Objekt mit HTTPS-URL und Titel enthalten.
+Konferenzantwort muss genau ein Objekt mit HTTPS-URL und Titel im Antwortarray enthalten.
+Optional liefert `phone.numbers.numbers` die Einwahlnummern nach Länderkennung
+(zum Beispiel `{"DE":"04122/012345","CH":"04122/012345"}`) und `phone.dialIn`
+den Einwahl-PIN als Zeichenfolge. Die Einladung und der Übernahmedialog zeigen
+jede gelieferte Nummer mit Länderkennung und den PIN, einschließlich führender
+Nullen. Gelieferte Nummern werden auch bei `numbersEnabled: false` angezeigt.
+Fehlende oder ungültige optionale Telefonfelder werden ausgelassen; der bereits
+erstellte Raum bleibt nutzbar. Termine erhalten den Ort „Meetling Konferenz“.
 Die URL wird unverändert eingefügt; es gibt keine erfundene UID.
 Laut aktueller Nutzerangabe enthält die Create-Antwort zusätzlich `id` neben
 `title`. Diese zurückgegebene Konferenz-ID (positive Ganzzahl, auch verlustfrei
@@ -200,8 +207,8 @@ Auch der Dialog zur manuellen Übernahme enthält beide Links, soweit verfügbar
 wird der Zielentwurf erfasst. Im Explorer wird ein nativer Besprechungsentwurf
 geöffnet, im bearbeitbaren Termin-/Mailfenster das vorhandene Element ergänzt.
 Word-Range-Einfügung hängt den Linkblock hinten an und erhält Formatierung und
-native Felder. Kein Save, Send oder spätere Synchronisation. Der Titel wird nur
-bei neu angelegten Entwürfen gesetzt. Empfangene Besprechungen und geschützte
+native Felder. Kein Save, Send oder spätere Synchronisation. Der Betreff bleibt
+unverändert, auch bei neu angelegten Entwürfen. Empfangene Besprechungen und geschützte
 Editoren werden abgewiesen.
 
 Globaler Beschäftigtzustand verhindert Doppelklicks. Nicht geheime

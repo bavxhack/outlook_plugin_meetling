@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text;
 namespace Meetling.Core;
 public sealed class MeetlingSettings
 {
@@ -53,15 +55,35 @@ public sealed class LoginResult
 }
 public sealed class ConferenceResult
 {
-    public ConferenceResult(string url, string title, string? conferenceId = null, string? moderatorEditUrl = null)
-    { Url = url; Title = title; ConferenceId = conferenceId; ModeratorEditUrl = moderatorEditUrl; }
+    public ConferenceResult(string url, string title, string? conferenceId = null, string? moderatorEditUrl = null,
+        IEnumerable<KeyValuePair<string, string>>? phoneNumbers = null, string? dialInPin = null)
+    {
+        Url = url; Title = title; ConferenceId = conferenceId; ModeratorEditUrl = moderatorEditUrl;
+        PhoneNumbers = new List<KeyValuePair<string, string>>(phoneNumbers ?? Array.Empty<KeyValuePair<string, string>>()).AsReadOnly();
+        DialInPin = dialInPin;
+    }
     public string Url { get; }
     public string Title { get; }
     public string? ConferenceId { get; }
     public string? ModeratorEditUrl { get; }
+    public IReadOnlyList<KeyValuePair<string, string>> PhoneNumbers { get; }
+    public string? DialInPin { get; }
     // Word uses a single carriage return as the paragraph separator.
-    public string BodyText => "Meetling-Konferenz\rTeilnehmen: " + Url + "\r" +
-        (ModeratorEditUrl == null ? "" : "\rKonferenz in Meetling bearbeiten (nur für Moderatoren):\r" + ModeratorEditUrl + "\r");
+    public string BodyText
+    {
+        get
+        {
+            var text = new StringBuilder("Meetling-Konferenz\rTeilnehmen: " + Url + "\r");
+            if (PhoneNumbers.Count > 0)
+            {
+                text.Append("\rEinwahlnummern:\r");
+                foreach (var number in PhoneNumbers) text.Append(number.Key).Append(": ").Append(number.Value).Append('\r');
+            }
+            if (DialInPin != null) text.Append("\rEinwahl-PIN: ").Append(DialInPin).Append('\r');
+            if (ModeratorEditUrl != null) text.Append("\rKonferenz in Meetling bearbeiten (nur für Moderatoren):\r").Append(ModeratorEditUrl).Append('\r');
+            return text.ToString();
+        }
+    }
 }
 public sealed class MeetlingApiException : Exception
 {
