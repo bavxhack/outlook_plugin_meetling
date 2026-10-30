@@ -10,7 +10,7 @@ using Meetling.Core;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 namespace Meetling.OutlookAddIn;
-// This type and all WebView2 references are reached only through the explicit login action.
+// WebView2 is loaded only when login is needed, after COM initialization.
 internal sealed class LoginWindow : Form
 {
     private readonly WebView2 browser = new WebView2 { Dock = DockStyle.Fill };
