@@ -56,10 +56,16 @@ internal sealed class PluginController : IDisposable
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Task<LoginResult?> BrowserLogin(Uri endpoint, CancellationToken ct) => LoginWindow.SignInAsync(endpoint, ct);
+    internal Task SignInIfNeeded()
+    {
+        // Saved tokens are restored by Reload(true). A cancelled login is not retried.
+        if (login != null || !CanLogin) return Task.CompletedTask;
+        return SignIn();
+    }
     internal async Task SignIn()
     {
         if (!CanLogin) return;
-        // Explicit user action only. Never called during COM load/startup.
+        // Called manually or once after Outlook startup, outside the COM load callbacks.
         Invalidate(); signingIn = true; var version = epoch.Value; var ct = lifetime.Token; var settings = configuration.Settings!;
         SetStatus("Anmeldung läuft.");
         try

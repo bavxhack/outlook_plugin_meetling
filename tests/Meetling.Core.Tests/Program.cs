@@ -116,41 +116,46 @@ internal static class Program
             var handler = new Handler(); using (var http = new HttpClient(handler))
             {
                 var api = new MeetlingApiClient(http);
-                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/a%2Fb?x=1\",\"title\":\"generated\",\"id\":9007199254740993}]"));
+                handler.Respond = _ => Task.FromResult(Json("{\"url\":\"https://host.example/a%2Fb?x=1\",\"title\":\"generated\",\"id\":9007199254740993}"));
                 var conference = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
                 Check(conference.Url == "https://host.example/a%2Fb?x=1", "URL unchanged");
                 Check(conference.ConferenceId == "9007199254740993", "conference ID preserved without rounding");
                 Check(conference.ModeratorEditUrl == "https://host.example/meetling/room/dashboard?editConference_id=9007199254740993", "edit link uses installation subpath and returned conference ID");
                 Check(conference.BodyText.IndexOf(conference.Url, StringComparison.Ordinal) < conference.BodyText.IndexOf(conference.ModeratorEditUrl!, StringComparison.Ordinal) && conference.BodyText.Contains("nur für Moderatoren"), "moderator link below participant link and labelled");
+                handler.Respond = _ => Task.FromResult(Json("{\"url\":\"https://jitsiadmin.dev07.h2-invent.com/myRoom/start/20885e9414b8aa06c5e1a8f5616e8249\",\"title\":\"28a575d52c5a25390f286738ea29d619\",\"id\":268,\"phone\":{\"numbers\":{\"message\":\"Einwahlnummern\",\"numbers\":{\"DE\":\"04122/012345\",\"CH\":\"04122/012345\"},\"numbersEnabled\":true},\"dialIn\":\"236264\"}}"));
+                var reportedConference = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
+                Check(reportedConference.ConferenceId == "268" && reportedConference.Title == "28a575d52c5a25390f286738ea29d619", "reported object response preserves ID and title");
+                Check(reportedConference.PhoneNumbers.Count == 2 && reportedConference.DialInPin == "236264", "reported object response includes both countries and PIN");
+                Check(reportedConference.Url == "https://jitsiadmin.dev07.h2-invent.com/myRoom/start/20885e9414b8aa06c5e1a8f5616e8249" && reportedConference.ModeratorEditUrl!.EndsWith("editConference_id=268", StringComparison.Ordinal), "reported object response retains participant and moderator links");
                 foreach (var id in new[] { "null", "0", "-1", "1.5", "\"\"", "\"bad&injected=1\"", "true", "{}" })
                 {
-                    handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"id\":" + id + "}]"));
+                    handler.Respond = _ => Task.FromResult(Json("{\"url\":\"https://host.example/room\",\"title\":\"a\",\"id\":" + id + "}"));
                     var incomplete = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
                     Check(incomplete.Url == "https://host.example/room" && incomplete.ModeratorEditUrl == null, "invalid optional ID cannot fabricate edit link or discard created room");
                 }
-                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"id\":\"42\"}]"));
+                handler.Respond = _ => Task.FromResult(Json("{\"url\":\"https://host.example/room\",\"title\":\"a\",\"id\":\"42\"}"));
                 Check((await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None)).ModeratorEditUrl!.EndsWith("editConference_id=42", StringComparison.Ordinal), "digit string ID adapter tested");
-                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\"}]"));
+                handler.Respond = _ => Task.FromResult(Json("{\"url\":\"https://host.example/room\",\"title\":\"a\"}"));
                 var legacyConference = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
                 Check(legacyConference.ModeratorEditUrl == null && !legacyConference.BodyText.Contains("dashboard"), "missing ID retains participant link without invented ID");
                 Check(legacyConference.PhoneNumbers.Count == 0 && legacyConference.DialInPin == null && !legacyConference.BodyText.Contains("Einwahl"), "legacy response has no empty phone section");
-                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://example.test/example-room/room-uid-42\",\"title\":\"Testkonferenz\",\"id\":32,\"phone\":{\"numbers\":{\"message\":\"Einwahlnummern\",\"numbers\":{\"DE\":\"04122/012345\",\"CH\":\"04122/012345\"},\"numbersEnabled\":false},\"dialIn\":\"12345678\"}}]"));
+                handler.Respond = _ => Task.FromResult(Json("{\"url\":\"https://example.test/example-room/room-uid-42\",\"title\":\"Testkonferenz\",\"id\":32,\"phone\":{\"numbers\":{\"message\":\"Einwahlnummern\",\"numbers\":{\"DE\":\"04122/012345\",\"CH\":\"04122/012345\"},\"numbersEnabled\":false},\"dialIn\":\"12345678\"}}"));
                 var dialIn = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
                 Check(dialIn.PhoneNumbers.Count == 2 && dialIn.DialInPin == "12345678", "all supplied phone numbers and PIN parsed even when numbersEnabled is false");
                 Check(dialIn.BodyText.Contains("Einwahlnummern:\rDE: 04122/012345\rCH: 04122/012345\r") && dialIn.BodyText.Contains("Einwahl-PIN: 12345678\r"), "invitation lists each country and the PIN");
                 Check(dialIn.BodyText.Contains(dialIn.Url) && dialIn.BodyText.Contains(dialIn.ModeratorEditUrl!), "phone details retain both conference links");
                 foreach (var phone in new[] { "null", "{}", "[]", "{\"numbers\":null}", "{\"numbers\":{\"numbers\":{\"DE\":null,\"CH\":42,\"AT\":\" \"}},\"dialIn\":{}}" })
                 {
-                    handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"phone\":" + phone + "}]"));
+                    handler.Respond = _ => Task.FromResult(Json("{\"url\":\"https://host.example/room\",\"title\":\"a\",\"phone\":" + phone + "}"));
                     var noPhone = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
                     Check(noPhone.Url == "https://host.example/room" && !noPhone.BodyText.Contains("Einwahl"), "invalid optional phone data retains created room without empty sections");
                 }
-                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"phone\":{\"dialIn\":\"001234\"}}]"));
+                handler.Respond = _ => Task.FromResult(Json("{\"url\":\"https://host.example/room\",\"title\":\"a\",\"phone\":{\"dialIn\":\"001234\"}}"));
                 Check((await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None)).BodyText.Contains("Einwahl-PIN: 001234\r"), "PIN leading zeroes retained without phone numbers");
-                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"phone\":{\"numbers\":{\"numbers\":{\"DE\":\"04122/012345\"},\"numbersEnabled\":true}}}]"));
+                handler.Respond = _ => Task.FromResult(Json("{\"url\":\"https://host.example/room\",\"title\":\"a\",\"phone\":{\"numbers\":{\"numbers\":{\"DE\":\"04122/012345\"},\"numbersEnabled\":true}}}"));
                 var numberOnly = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
                 Check(numberOnly.BodyText.Contains("DE: 04122/012345\r") && !numberOnly.BodyText.Contains("Einwahl-PIN"), "numbers without PIN remain visible");
-                foreach (var bad in new[] { "{}", "[]", "[{},{}]", "[{\"url\":\"http://host/a\",\"title\":\"a\"}]", "[{\"url\":\"https://host/a\",\"title\":\"\"}]" }) { handler.Respond = _ => Task.FromResult(Json(bad)); await RejectAsync(() => api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None), "invalid conference"); }
+                foreach (var bad in new[] { "{}", "null", "[]", "[{},{}]", "[{\"url\":\"https://host/a\",\"title\":\"a\"}]", "{\"url\":\"http://host/a\",\"title\":\"a\"}", "{\"url\":\"https://host/a\",\"title\":\"\"}" }) { handler.Respond = _ => Task.FromResult(Json(bad)); await RejectAsync(() => api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None), "invalid conference"); }
                 handler.Respond = _ => Task.FromResult(Json("{\"token\":null}")); await api.LogoutAsync(settings, "token", CancellationToken.None); checks++;
                 handler.Respond = _ => Task.FromResult(Json("{}")); await RejectAsync(() => api.LogoutAsync(settings, "token", CancellationToken.None), "unconfirmed logout");
                 handler.Respond = _ => Task.FromResult(Json("{\"error\":true,\"reason\":\"No user loged found\"}")); await RejectAsync(() => api.LogoutAsync(settings, "token", CancellationToken.None), "invalid logout token");

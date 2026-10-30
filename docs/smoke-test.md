@@ -31,8 +31,15 @@ Keine Secrets protokollieren.
    Server/Create/Logout gehen unter `/api/v1/outlook/plugin/` mit Bearer ab.
    Alte Standard-JSON laden und gleiche Datei nachher prüfen; eigene Präfixe
    müssen erhalten bleiben. Kein API-Redirect und kein alter token-Header.
-   Outlook neu starten: keine automatische Browseröffnung, Token wird sicher
-   wiederverwendet; Server aktualisieren. Serverlisten mit 0/1/2/>2 Einträgen,
+   Outlook mit gespeichertem Token neu starten: keine Browseröffnung, Token wird
+   sicher wiederverwendet; Server aktualisieren. Ohne gespeichertes Token und mit
+   gültiger Konfiguration: nach dem Start genau ein Anmeldefenster, Outlook bleibt
+   bedienbar. SSO mit bestehender Sitzung sowie Anmeldung mit Zugangsdaten/MFA prüfen.
+   Abbrechen: kein erneutes Fenster in derselben Sitzung; manuelles Anmelden bleibt
+   möglich. Ohne/mit defekter Konfiguration: kein automatisches Anmeldefenster.
+   Outlook während der Verzögerung bzw. Anmeldung schließen: kein späteres Fenster.
+   Add-in nach Outlook-Start aktivieren: derselbe einmalige Ablauf.
+   Serverlisten mit 0/1/2/>2 Einträgen,
    gleichen Namen, Sortierung, ID-Auswahl und Abbruch prüfen.
 6. Neues Meetling aus Kalender: nativer Besprechungsentwurf mit leerem Betreff,
    auch wenn die API einen Konferenznamen liefert. Teilnahme- und Moderatorlink

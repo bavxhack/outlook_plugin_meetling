@@ -111,18 +111,18 @@ public sealed class MeetlingApiClient
     public async Task<ConferenceResult> CreateConferenceAsync(MeetlingSettings settings, string token, string serverId, CancellationToken ct)
     {
         var json = await Send(settings, "create", token, serverId, ct).ConfigureAwait(false);
-        if (!(json is JArray array) || array.Count != 1 || !(array[0] is JObject)) throw new MeetlingApiException("Erwartet wird genau eine Konferenz.");
-        var url = Required(array[0], "url"); var title = Required(array[0], "title");
+        if (!(json is JObject conference)) throw new MeetlingApiException("Erwartet wird ein einzelnes Konferenzobjekt.");
+        var url = Required(conference, "url"); var title = Required(conference, "title");
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || uri.UserInfo.Length != 0) throw new MeetlingApiException("Ungültiger HTTPS-Konferenzlink.");
         // The returned database ID is distinct from the participant URL, title and server ID.
         // Retain the successfully created room even if an older server omits the new ID field.
-        var idValue = array[0]["id"];
+        var idValue = conference["id"];
         string? id = idValue?.Type == JTokenType.Integer ? idValue!.ToString(Formatting.None) : idValue?.Type == JTokenType.String ? (string?)idValue : null;
         if (id == null || id.Length == 0 || !System.Linq.Enumerable.All(id, c => c >= '0' && c <= '9') || !System.Linq.Enumerable.Any(id, c => c != '0')) id = null;
         string? editUrl = id == null ? null : settings.Installation + "room/dashboard?editConference_id=" + Uri.EscapeDataString(id);
         if (id == null) Trace("ApiRequest create missing-or-invalid-conference-id");
         // Phone data is optional: older or incomplete responses must not discard a created room.
-        var phone = array[0]["phone"] as JObject;
+        var phone = conference["phone"] as JObject;
         var numbers = (phone?["numbers"] as JObject)?["numbers"] as JObject;
         var phoneNumbers = new List<KeyValuePair<string, string>>();
         if (numbers != null)
