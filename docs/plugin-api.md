@@ -179,7 +179,8 @@ Servern ist eine bestätigte Auswahl erforderlich. Namen und numerische IDs sind
 getrennt, IDs erscheinen zusätzlich im Dialog. Große Ganzzahlen bleiben exakt;
 String-IDs werden bewusst abgewiesen. Abbruch sendet keinen Create-Request.
 
-Konferenzantwort muss genau ein Objekt mit HTTPS-URL und Titel im Antwortarray enthalten.
+Konferenzantwort muss ein einzelnes JSON-Objekt mit HTTPS-URL (`url`) und Titel
+(`title`) sein. Ein Antwortarray wird nicht akzeptiert.
 Optional liefert `phone.numbers.numbers` die Einwahlnummern nach Länderkennung
 (zum Beispiel `{"DE":"04122/012345","CH":"04122/012345"}`) und `phone.dialIn`
 den Einwahl-PIN als Zeichenfolge. Die Einladung und der Übernahmedialog zeigen
