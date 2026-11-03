@@ -150,7 +150,16 @@ internal static class Program
                 handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"https://host.example/room\",\"title\":\"a\",\"phone\":{\"numbers\":{\"numbers\":{\"DE\":\"04122/012345\"},\"numbersEnabled\":true}}}]"));
                 var numberOnly = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
                 Check(numberOnly.BodyText.Contains("DE: 04122/012345\r") && !numberOnly.BodyText.Contains("Einwahl-PIN"), "numbers without PIN remain visible");
-                foreach (var bad in new[] { "{}", "[]", "[{},{}]", "[{\"url\":\"http://host/a\",\"title\":\"a\"}]", "[{\"url\":\"https://host/a\",\"title\":\"\"}]" }) { handler.Respond = _ => Task.FromResult(Json(bad)); await RejectAsync(() => api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None), "invalid conference"); }
+                handler.Respond = _ => Task.FromResult(Json("[{\"url\":\"http://localhost:8000/myRoom/start/dc78cf2e19dafec6e3c531fbdc234ee9\",\"title\":\"cb0791db9e10a69fa47972d6a91f87af\",\"id\":2544,\"phone\":{\"numbers\":{\"message\":\"Einwahlnummern\",\"numbers\":{\"DE\":\"04122/012345\",\"CH\":\"04122/012345\"},\"numbersEnabled\":true},\"dialIn\":\"207632\"}}]"));
+                var localConference = await api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None);
+                Check(localConference.Url == "http://localhost:8000/myRoom/start/dc78cf2e19dafec6e3c531fbdc234ee9", "returned HTTP participant URL preserved unchanged");
+                Check(localConference.BodyText.Contains("DE: 04122/012345\rCH: 04122/012345\r") && localConference.BodyText.Contains("Einwahl-PIN: 207632\r"), "reported response includes both dial-in numbers and PIN in invitation");
+                foreach (var badLink in new[] { "javascript:alert(1)", "file:///room", "ftp://host/room", "https://user:password@host/room", "http://user:password@host/room", "/relative" })
+                {
+                    handler.Respond = _ => Task.FromResult(Json(new JArray(new JObject { ["url"] = badLink, ["title"] = "a" }).ToString()));
+                    await RejectAsync(() => api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None), "unsafe participant link rejected");
+                }
+                foreach (var bad in new[] { "{}", "[]", "[{},{}]", "[{\"url\":\"ftp://host/a\",\"title\":\"a\"}]", "[{\"url\":\"https://host/a\",\"title\":\"\"}]" }) { handler.Respond = _ => Task.FromResult(Json(bad)); await RejectAsync(() => api.CreateConferenceAsync(settings, "token", "10", CancellationToken.None), "invalid conference"); }
                 handler.Respond = _ => Task.FromResult(Json("{\"token\":null}")); await api.LogoutAsync(settings, "token", CancellationToken.None); checks++;
                 handler.Respond = _ => Task.FromResult(Json("{}")); await RejectAsync(() => api.LogoutAsync(settings, "token", CancellationToken.None), "unconfirmed logout");
                 handler.Respond = _ => Task.FromResult(Json("{\"error\":true,\"reason\":\"No user loged found\"}")); await RejectAsync(() => api.LogoutAsync(settings, "token", CancellationToken.None), "invalid logout token");

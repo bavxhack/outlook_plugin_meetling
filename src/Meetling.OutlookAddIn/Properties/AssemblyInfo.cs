@@ -4,8 +4,8 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescription("Meetling Outlook-Plugin-API Client")]
 [assembly: AssemblyCompany("Meetling")]
 [assembly: AssemblyProduct("Meetling Outlook Add-in")]
-[assembly: AssemblyVersion("1.3.6.0")]
-[assembly: AssemblyFileVersion("1.3.6.0")]
+[assembly: AssemblyVersion("1.3.7.0")]
+[assembly: AssemblyFileVersion("1.3.7.0")]
 [assembly: ComVisible(false)]
 
 
