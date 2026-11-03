@@ -179,7 +179,7 @@ Servern ist eine bestätigte Auswahl erforderlich. Namen und numerische IDs sind
 getrennt, IDs erscheinen zusätzlich im Dialog. Große Ganzzahlen bleiben exakt;
 String-IDs werden bewusst abgewiesen. Abbruch sendet keinen Create-Request.
 
-Konferenzantwort muss ein einzelnes JSON-Objekt mit HTTPS-URL (`url`) und Titel
+Konferenzantwort muss ein einzelnes JSON-Objekt mit HTTP(S)-URL (`url`) und Titel
 (`title`) sein. Ein Antwortarray wird nicht akzeptiert.
 Optional liefert `phone.numbers.numbers` die Einwahlnummern nach Länderkennung
 (zum Beispiel `{"DE":"04122/012345","CH":"04122/012345"}`) und `phone.dialIn`
@@ -188,6 +188,10 @@ jede gelieferte Nummer mit Länderkennung und den PIN, einschließlich führende
 Nullen. Gelieferte Nummern werden auch bei `numbersEnabled: false` angezeigt.
 Fehlende oder ungültige optionale Telefonfelder werden ausgelassen; der bereits
 erstellte Raum bleibt nutzbar. Termine erhalten den Ort „Meetling Konferenz“.
+Zurückgegebene Konferenzlinks dürfen HTTP oder HTTPS verwenden; sie werden nur
+in den Entwurf eingefügt, nicht vom API-Client abgerufen. Andere Schemes,
+relative Links und URLs mit Zugangsdaten werden abgewiesen. API-Basisadresse
+und Browserlogin verlangen weiterhin HTTPS.
 Die URL wird unverändert eingefügt; es gibt keine erfundene UID.
 Laut aktueller Nutzerangabe enthält die Create-Antwort zusätzlich `id` neben
 `title`. Diese zurückgegebene Konferenz-ID (positive Ganzzahl, auch verlustfrei

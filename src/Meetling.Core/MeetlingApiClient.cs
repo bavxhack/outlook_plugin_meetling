@@ -113,7 +113,7 @@ public sealed class MeetlingApiClient
         var json = await Send(settings, "create", token, serverId, ct).ConfigureAwait(false);
         if (!(json is JObject conference)) throw new MeetlingApiException("Erwartet wird ein einzelnes Konferenzobjekt.");
         var url = Required(conference, "url"); var title = Required(conference, "title");
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || uri.UserInfo.Length != 0) throw new MeetlingApiException("Ungültiger HTTPS-Konferenzlink.");
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp) || uri.UserInfo.Length != 0) throw new MeetlingApiException("Ungültiger HTTP(S)-Konferenzlink.");
         // The returned database ID is distinct from the participant URL, title and server ID.
         // Retain the successfully created room even if an older server omits the new ID field.
         var idValue = conference["id"];
