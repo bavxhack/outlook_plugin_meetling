@@ -5,8 +5,14 @@ ProgID und CLSID sowie Logo und Kalenderbutton bleiben erhalten.
 Die aktive Konferenzaktion verwendet die dokumentierte Outlook-Plugin-API.
 
 Über **Einstellungen** eine HTTPS-Installationsadresse eintragen oder eine
-administrierte JSON-Konfiguration verteilen, dann **Anmelden**. Das sichtbare
-WebView2-Fenster verwendet den SSO-Anmeldeweg der Installation. Anschließend
+administrierte JSON-Konfiguration verteilen. Beim nächsten Outlook-Start öffnet
+sich bei fehlender gespeicherter Anmeldung einmalig das Anmeldefenster. Eine
+vorhandene Anmeldung wird wiederverwendet. **Anmelden** startet den Ablauf auch
+manuell; nach Abbruch erfolgt kein automatischer Wiederholungsversuch in derselben
+Outlook-Sitzung. Ohne gültige Konfiguration wird kein Fenster geöffnet. Das sichtbare
+WebView2-Fenster verwendet den SSO-Anmeldeweg der Installation. Eine vorhandene
+SSO-Sitzung kann die Anmeldung ohne Eingabe abschließen; erforderliche Zugangsdaten,
+Zustimmungen oder MFA bestätigt der Nutzer weiterhin. Anschließend
 **Server aktualisieren** oder **Neues Meetling** wählen. Bei mehreren Servern
 muss die Auswahl bestätigt werden. Outlook-Entwürfe werden ergänzt, weder
 automatisch gespeichert noch versendet.
