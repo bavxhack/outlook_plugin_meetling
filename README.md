@@ -33,7 +33,42 @@ Version 1.3.7 übernimmt auch zurückgegebene HTTP-Konferenzlinks. Damit werden
 bei solchen Antworten die Einwahlnummern und der Einwahl-PIN ebenfalls eingefügt.
 API-Verbindung und Anmeldung verlangen weiterhin HTTPS.
 
-## Standardweg: ZIP und Windows PowerShell 5.1
+## Standardweg: MSI per Doppelklick
+
+1. Unter **Datei → Office-Konto → Info zu Outlook** die Outlook-Bitness prüfen.
+2. Im [aktuellen Release](https://github.com/bavxhack/outlook_plugin_meetling/releases/tag/continuous)
+   `Meetling-OutlookAddIn-x86.msi` für 32-Bit-Outlook oder
+   `Meetling-OutlookAddIn-x64.msi` für 64-Bit-Outlook herunterladen.
+3. Outlook vollständig schließen und die MSI per Doppelklick öffnen.
+   Die Installation erfolgt für den aktuellen Benutzer ohne Administratorrechte
+   und ohne PowerShell-Befehle. Danach Outlook starten.
+
+Die MSI-Pakete werden nach erfolgreicher Windows-CI als Actions-Artefakte und
+über den bestehenden Release-Schritt veröffentlicht. Im Actions-Lauf stehen unter
+**Artifacts** die separaten Downloads `Meetling-OutlookAddIn-MSI-x86` und
+`Meetling-OutlookAddIn-MSI-x64` bereit. GitHub verpackt Artefakte beim Download als
+ZIP; daraus die MSI entpacken und per Doppelklick starten. Windows kann bei den
+unsignierten Paketen eine Sicherheitsbestätigung verlangen; ein signierter,
+warnungsfreier Download wird nicht zugesichert. .NET Framework 4.8 ist erforderlich
+und wird vor der Installation geprüft. Für die Anmeldung muss zusätzlich die
+Microsoft Edge WebView2 Evergreen Runtime vorhanden sein.
+Nur Outlook Classic unterstützt dieses COM-Add-in.
+
+Updates: Outlook schließen und die neue MSI derselben Architektur öffnen.
+Auch erneute Builds derselben Version ersetzen die vorhandene MSI-Installation.
+Eine niedrigere Produktversion wird abgewiesen. Unter **Windows-Einstellungen →
+Apps → Installierte Apps → Meetling Outlook Add-in** lässt sich das Add-in
+entfernen; Einstellungen, Anmeldung und Logs bleiben erhalten.
+Eine vorhandene ZIP-Installation zuerst mit deren `Uninstall.ps1` entfernen.
+Beim Wechsel der Outlook-Bitness die bisherige Installation zuerst deinstallieren.
+Die MSI installiert nach `%LOCALAPPDATA%\Meetling\OutlookAddIn\<x86|x64>`.
+
+Die CI prüft beide MSIs unter einem temporären Standardbenutzer: Installation,
+Reparatur einer gelöschten DLL, COM-/Ribbon-Aktivierung, Deinstallation und Erhalt
+der Benutzerdaten. Die tatsächliche Outlook-Oberfläche bleibt Teil der
+[manuellen Abnahme](docs/smoke-test.md).
+
+## Alternativ: ZIP und Windows PowerShell 5.1
 
 1. Outlook-Bitness unter **Datei → Office-Konto → Info zu Outlook** feststellen.
    Die Windows-Bitness allein reicht nicht.
@@ -135,9 +170,12 @@ Zusätzlich prüft er den Bildcallback als echtes IPictureDisp, die Originalfarb
 und Transparenz des Würfels. Die native Outlook-UI wird im CI nicht geöffnet.
 HTTP-Tests sind simuliert, keine Live-Integrationstests.
 
-**WiX/MSI bleibt ein nicht abgenommener alternativer Weg.** Versionsangaben und
-Abhängigkeiten sind aktualisiert, der Standardweg liefert Architektur-ZIPs aus
-Actions; MSI ist nicht Bestandteil der zugesicherten Artefakte.
+Die Pipeline baut zusätzlich mit WiX 3.14.1 eigenständige MSI-Pakete inklusive
+aller sieben Laufzeit-DLLs und COM-Registrierung in der passenden Registryansicht.
+Produkt- und Assemblyversion werden aus der gebauten DLL übernommen. ZIPs bleiben
+als alternativer Installationsweg verfügbar. Die MSI-SHA256-Prüfsummen werden mit
+veröffentlicht. Lokale MSI-Builds benötigen WiX 3 und die MSBuild-Properties
+`ProductVersion` (dreiteilig) und `AssemblyVersion` (vierteilig) passend zur DLL.
 
 Der verifizierte Ausgangsstand ist `main` / `0ca8de3d9741af5378dde2989239e78e551b5066`.
 Siehe [Prüfbericht](docs/verification.md) und [Roadmap](docs/roadmap.md).

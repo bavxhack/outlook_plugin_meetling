@@ -56,7 +56,7 @@ jobs:
           }
 
   build:
-    name: DLL für ${{ matrix.architecture }}
+    name: DLL und MSI für ${{ matrix.architecture }}
     needs: test
     runs-on: windows-2022
     timeout-minutes: 15
@@ -144,6 +144,27 @@ jobs:
               throw "Release-Archiv wurde nicht korrekt erzeugt: $archive"
           }
 
+      - name: WiX 3.14.1 bereitstellen
+        shell: powershell
+        run: |
+          nuget install WiX -Version 3.14.1 -OutputDirectory work\tools -NonInteractive
+          if ($LASTEXITCODE -ne 0) { throw 'WiX konnte nicht bereitgestellt werden.' }
+
+      - name: MSI erstellen
+        shell: powershell
+        run: |
+          $source = (Resolve-Path "src\Meetling.OutlookAddIn\bin\${{ matrix.architecture }}\$env:CONFIGURATION\net48").Path
+          $version = [Reflection.AssemblyName]::GetAssemblyName((Join-Path $source 'Meetling.OutlookAddIn.dll')).Version
+          $wixTargets = (Resolve-Path 'work\tools\WiX.3.14.1\tools\wix.targets').Path
+          msbuild installer\Meetling.OutlookAddIn.wixproj /t:Rebuild /verbosity:minimal /p:Configuration=$env:CONFIGURATION /p:Platform=${{ matrix.architecture }} "/p:WixTargetsPath=$wixTargets" "/p:SourceDir=$source" "/p:ProductVersion=$($version.ToString(3))" "/p:AssemblyVersion=$version"
+          if ($LASTEXITCODE -ne 0) { throw 'MSI-Build fehlgeschlagen.' }
+          $msi = "installer\bin\${{ matrix.architecture }}\$env:CONFIGURATION\Meetling-OutlookAddIn-${{ matrix.architecture }}.msi"
+          if (-not (Test-Path $msi) -or (Get-Item $msi).Length -eq 0) { throw 'MSI fehlt oder ist leer.' }
+          Copy-Item $msi artifacts\
+          Get-FileHash "artifacts\Meetling-OutlookAddIn-${{ matrix.architecture }}.msi" -Algorithm SHA256 |
+              ForEach-Object { "{0} *{1}" -f $_.Hash, (Split-Path $_.Path -Leaf) } |
+              Set-Content "artifacts\Meetling-OutlookAddIn-${{ matrix.architecture }}.msi.sha256" -Encoding ASCII
+
       - name: COM- und Ribbon-Smoke-Test bauen
         shell: powershell
         run: |
@@ -153,7 +174,17 @@ jobs:
       - name: Paket installieren, erneut installieren und COM-Grenze prüfen
         shell: powershell
         run: |
-          & tests\Invoke-StandardUserSmoke.ps1 -Architecture ${{ matrix.architecture }} -PackageDirectory "artifacts\Meetling-OutlookAddIn-${{ matrix.architecture }}" -HarnessDirectory "tests\Meetling.OutlookAddIn.SmokeTests\bin\${{ matrix.architecture }}\Release\net48"
+          & tests\Invoke-StandardUserSmoke.ps1 -Architecture ${{ matrix.architecture }} -PackageDirectory "artifacts\Meetling-OutlookAddIn-${{ matrix.architecture }}" -HarnessDirectory "tests\Meetling.OutlookAddIn.SmokeTests\bin\${{ matrix.architecture }}\Release\net48" -MsiPath "artifacts\Meetling-OutlookAddIn-${{ matrix.architecture }}.msi"
+
+      - name: MSI-Installer als eigenes Actions-Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Meetling-OutlookAddIn-MSI-${{ matrix.architecture }}
+          path: |
+            artifacts/Meetling-OutlookAddIn-${{ matrix.architecture }}.msi
+            artifacts/Meetling-OutlookAddIn-${{ matrix.architecture }}.msi.sha256
+          if-no-files-found: error
+          retention-days: 30
 
       - name: DLL-Paket hochladen
         uses: actions/upload-artifact@v4
@@ -191,6 +222,10 @@ jobs:
           set -euo pipefail
           mkdir -p release-assets
           find downloaded-artifacts -type f -name 'Meetling-OutlookAddIn-*.zip' -exec cp '{}' release-assets/ \;
+          find downloaded-artifacts -type f \( -name '*.msi' -o -name '*.msi.sha256' \) -exec cp '{}' release-assets/ \;
+          (cd release-assets && sha256sum -c *.msi.sha256)
+          test -s release-assets/Meetling-OutlookAddIn-x86.msi
+          test -s release-assets/Meetling-OutlookAddIn-x64.msi
           test -f release-assets/Meetling-OutlookAddIn-x86.zip
           test -f release-assets/Meetling-OutlookAddIn-x64.zip
           unzip -t release-assets/Meetling-OutlookAddIn-x86.zip
@@ -206,9 +241,9 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             release_tag="$GITHUB_REF_NAME"
             if gh release view "$release_tag" >/dev/null 2>&1; then
-              gh release upload "$release_tag" release-assets/*.zip --clobber
+              gh release upload "$release_tag" release-assets/* --clobber
             else
-              gh release create "$release_tag" release-assets/*.zip \
+              gh release create "$release_tag" release-assets/* \
                 --verify-tag \
                 --generate-notes \
                 --title "Meetling Outlook Add-in $release_tag"
@@ -217,11 +252,11 @@ jobs:
             release_tag="continuous"
             gh release delete "$release_tag" --cleanup-tag --yes >/dev/null 2>&1 || true
             gh api --method DELETE "repos/$GH_REPO/git/refs/tags/$release_tag" >/dev/null 2>&1 || true
-            gh release create "$release_tag" release-assets/*.zip \
+            gh release create "$release_tag" release-assets/* \
               --target "$GITHUB_SHA" \
               --prerelease \
               --title "Meetling Outlook Add-in – aktueller Build" \
-              --notes "CI-Build (keine Outlook-Abnahme) aus Commit $GITHUB_SHA. Für Outlook 32-Bit das x86-Paket, für Outlook 64-Bit das x64-Paket herunterladen."
+              --notes "CI-Build (keine Outlook-Abnahme) aus Commit $GITHUB_SHA. Für Outlook 32-Bit die x86.msi, für Outlook 64-Bit die x64.msi herunterladen. Outlook schließen und MSI per Doppelklick installieren. .NET Framework 4.8 und für die Anmeldung WebView2 Runtime erforderlich."
           fi
 
           echo "### Release verfügbar" >> "$GITHUB_STEP_SUMMARY"

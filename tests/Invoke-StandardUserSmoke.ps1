@@ -3,7 +3,8 @@
 param(
     [Parameter(Mandatory = $true)][ValidateSet('x86', 'x64')][string] $Architecture,
     [Parameter(Mandatory = $true)][string] $PackageDirectory,
-    [Parameter(Mandatory = $true)][string] $HarnessDirectory
+    [Parameter(Mandatory = $true)][string] $HarnessDirectory,
+    [Parameter(Mandatory = $true)][string] $MsiPath
 )
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true') { throw 'This disposable-account driver is restricted to GitHub Actions.' }
@@ -17,6 +18,7 @@ try {
     New-Item -ItemType Directory -Path "$root\package (Outlook test)", "$root\harness" -Force | Out-Null
     Copy-Item "$PackageDirectory\*" "$root\package (Outlook test)" -Recurse -Force
     Copy-Item "$HarnessDirectory\*" "$root\harness" -Recurse -Force
+    Copy-Item -LiteralPath $MsiPath -Destination "$root\Meetling.msi"
     Copy-Item (Join-Path $PSScriptRoot 'Run-InstalledSmoke.ps1') "$root\Run.ps1"
     # Grant access only to this disposable test directory and this test account.
     & icacls.exe $root /grant ("${userName}:(OI)(CI)M") /T /Q | Out-Null

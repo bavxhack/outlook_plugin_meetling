@@ -67,4 +67,41 @@ if (-not $failed) {
     Write-Output 'PASS: missing/corrupt settings, secret preservation and uninstall.'
 }
 if ($failed) { exit 1 }
+# Exercise the actual MSI in the same unprivileged profile after ZIP cleanup.
+function Invoke-Msi([string[]] $MsiArguments) {
+    $process = Start-Process "$env:WINDIR\System32\msiexec.exe" -ArgumentList $MsiArguments -Wait -PassThru
+    if ($process.ExitCode -notin @(0, 3010)) {
+        Get-Content "$PSScriptRoot\msi.log" -ErrorAction SilentlyContinue
+        throw "MSI failed: $($process.ExitCode)"
+    }
+}
+$msi = "`"$PSScriptRoot\Meetling.msi`""
+$log = "`"$PSScriptRoot\msi.log`""
+$installedDll = Join-Path $env:LOCALAPPDATA "Meetling\OutlookAddIn\$Architecture\Meetling.OutlookAddIn.dll"
+try {
+    Invoke-Msi @('/i', $msi, '/qn', '/norestart', '/l*v', $log)
+    if (-not (Test-Path $installedDll)) { throw 'MSI payload missing.' }
+    # Repair must restore a deleted file and preserve user data.
+    Remove-Item $installedDll -Force
+    Invoke-Msi @('/fa', $msi, '/qn', '/norestart', '/l*v', $log)
+    if (-not (Test-Path $installedDll)) { throw 'MSI repair failed.' }
+    & $powershell -NoProfile -ExecutionPolicy Bypass -File "$package\Diagnose.ps1" -OutlookBitness $Architecture -TestComActivation -OutputPath "$PSScriptRoot\COM-diagnosis.txt"
+    if ($LASTEXITCODE -ne 0) { throw 'MSI COM activation failed.' }
+    & "$PSScriptRoot\harness\Meetling.OutlookAddIn.SmokeTests.exe"
+    if ($LASTEXITCODE -ne 0) { throw 'MSI IDispatch/Ribbon smoke failed.' }
+} finally {
+    Invoke-Msi @('/x', $msi, '/qn', '/norestart', '/l*v', $log)
+}
+if (Test-Path $installedDll) { throw 'MSI uninstall left payload behind.' }
+$root = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $registryView)
+try {
+    foreach ($path in @('Software\Microsoft\Office\Outlook\Addins\Meetling.OutlookAddIn', 'Software\Classes\CLSID\{4BB84EF2-9D83-4710-BDBA-7CBFD6939B48}')) {
+        $key = $root.OpenSubKey($path)
+        if ($key) { $key.Dispose(); throw "MSI uninstall left registration: $path" }
+    }
+} finally { $root.Dispose() }
+if ((Get-FileHash $settings).Hash -ne $settingsHash -or (Get-FileHash $secret).Hash -ne $secretHash) {
+    throw 'MSI changed settings or secrets.'
+}
+Write-Output 'PASS: standard-user MSI installation, repair, COM/Ribbon activation, uninstall and user-data preservation.'
 exit 0
