@@ -7,7 +7,7 @@
     <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
     <SourceDir Condition="'$(SourceDir)' == ''">$(MSBuildThisFileDirectory)..\src\Meetling.OutlookAddIn\bin\$(Platform)\$(Configuration)\net48</SourceDir>
-    <DefineConstants>Platform=$(Platform);SourceDir=$(SourceDir);ProductVersion=$(ProductVersion);AssemblyVersion=$(AssemblyVersion)</DefineConstants>
+    <DefineConstants>SourceDir=$(SourceDir);ProductVersion=$(ProductVersion);AssemblyVersion=$(AssemblyVersion)</DefineConstants>
   </PropertyGroup>
   <ItemGroup><Compile Include="Product.wxs" /></ItemGroup>
   <Import Project="$(WixTargetsPath)" Condition="'$(WixTargetsPath)' != ''" />
