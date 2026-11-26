@@ -11,7 +11,20 @@ if ($env:GITHUB_ACTIONS -ne 'true') { throw 'This disposable-account driver is r
 $userName = 'MtSmoke' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
 $password = ConvertTo-SecureString ([Guid]::NewGuid().ToString('N') + '!aA1') -AsPlainText -Force
 $root = Join-Path $env:PUBLIC $userName
+$installerPolicy = $null
+$policyChanged = $false
 try {
+    # Windows Server defaults can block unmanaged per-user MSIs (1625).
+    # This CI-only driver temporarily models a client machine allowing user installs;
+    # the child remains a standard user. Never enable AlwaysInstallElevated.
+    $installerPolicy = [Microsoft.Win32.Registry]::LocalMachine.CreateSubKey('Software\Policies\Microsoft\Windows\Installer')
+    $hadDisableMsi = $installerPolicy.GetValueNames() -contains 'DisableMSI'
+    if ($hadDisableMsi) {
+        $originalDisableMsi = $installerPolicy.GetValue('DisableMSI')
+        $originalDisableMsiKind = $installerPolicy.GetValueKind('DisableMSI')
+    }
+    $installerPolicy.SetValue('DisableMSI', 0, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $policyChanged = $true
     New-LocalUser -Name $userName -Password $password -AccountNeverExpires | Out-Null
     $usersGroup = Get-LocalGroup -SID ([Security.Principal.SecurityIdentifier]::new('S-1-5-32-545'))
     Add-LocalGroupMember -Group $usersGroup -Member $userName
@@ -35,6 +48,14 @@ try {
     if (Test-Path $preview) { Copy-Item $preview (Join-Path (Split-Path $PackageDirectory -Parent) "server-picker-$Architecture.png") -Force }
     if ($child.ExitCode -ne 0) { throw "Standard-user COM smoke test failed: $($child.ExitCode)" }
 } finally {
-    Remove-LocalUser -Name $userName -ErrorAction SilentlyContinue
-    if (Test-Path $root) { Remove-Item $root -Recurse -Force }
+    try {
+        if ($policyChanged) {
+            if ($hadDisableMsi) { $installerPolicy.SetValue('DisableMSI', $originalDisableMsi, $originalDisableMsiKind) }
+            else { $installerPolicy.DeleteValue('DisableMSI', $false) }
+        }
+    } finally {
+        if ($null -ne $installerPolicy) { $installerPolicy.Dispose() }
+        Remove-LocalUser -Name $userName -ErrorAction SilentlyContinue
+        if (Test-Path $root) { Remove-Item $root -Recurse -Force }
+    }
 }

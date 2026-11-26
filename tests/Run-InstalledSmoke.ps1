@@ -78,8 +78,10 @@ function Invoke-Msi([string[]] $MsiArguments) {
 $msi = "`"$PSScriptRoot\Meetling.msi`""
 $log = "`"$PSScriptRoot\msi.log`""
 $installedDll = Join-Path $env:LOCALAPPDATA "Meetling\OutlookAddIn\$Architecture\Meetling.OutlookAddIn.dll"
+$msiInstalled = $false
 try {
     Invoke-Msi @('/i', $msi, '/qn', '/norestart', '/l*v', $log)
+    $msiInstalled = $true
     if (-not (Test-Path $installedDll)) { throw 'MSI payload missing.' }
     # Repair must restore a deleted file and preserve user data.
     Remove-Item $installedDll -Force
@@ -90,7 +92,7 @@ try {
     & "$PSScriptRoot\harness\Meetling.OutlookAddIn.SmokeTests.exe"
     if ($LASTEXITCODE -ne 0) { throw 'MSI IDispatch/Ribbon smoke failed.' }
 } finally {
-    Invoke-Msi @('/x', $msi, '/qn', '/norestart', '/l*v', $log)
+    if ($msiInstalled) { Invoke-Msi @('/x', $msi, '/qn', '/norestart', '/l*v', $log) }
 }
 if (Test-Path $installedDll) { throw 'MSI uninstall left payload behind.' }
 $root = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $registryView)

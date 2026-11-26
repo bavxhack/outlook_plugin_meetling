@@ -65,7 +65,11 @@ Die MSI installiert nach `%LOCALAPPDATA%\Meetling\OutlookAddIn\<x86|x64>`.
 
 Die CI prüft beide MSIs unter einem temporären Standardbenutzer: Installation,
 Reparatur einer gelöschten DLL, COM-/Ribbon-Aktivierung, Deinstallation und Erhalt
-der Benutzerdaten. Die tatsächliche Outlook-Oberfläche bleibt Teil der
+der Benutzerdaten. Auf dem kurzlebigen Windows-Server-CI-Runner erlaubt der
+Testtreiber dafür vorübergehend benutzerbezogene MSI-Installationen (`DisableMSI=0`)
+und stellt die vorherige Richtlinie im `finally`-Block wieder her. Der Testbenutzer
+bleibt ohne Administratorrechte; Unternehmensrichtlinien auf Zielgeräten gelten
+weiterhin. Die tatsächliche Outlook-Oberfläche bleibt Teil der
 [manuellen Abnahme](docs/smoke-test.md).
 
 ## Alternativ: ZIP und Windows PowerShell 5.1
