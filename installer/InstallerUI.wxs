@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <UI Id="MeetlingInstallerUI">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="9" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="10" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Property Id="WixUI_Mode" Value="Minimal" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+
+      <Dialog Id="MeetlingSetupDlg" Width="370" Height="235" Title="Meetling für Outlook – Installation">
+        <Control Id="Title" Type="Text" X="20" Y="18" Width="330" Height="22" NoPrefix="yes" Text="{\WixUI_Font_Title}Meetling für Outlook Classic" />
+        <Control Id="Description" Type="Text" X="20" Y="53" Width="330" Height="45" NoPrefix="yes" Text="Version $(var.ProductVersion) für $(var.Platform). Bitte Outlook vollständig schließen. Die Installation erfolgt nur für dein Windows-Benutzerkonto." />
+        <Control Id="InstallInfo" Type="Text" X="20" Y="108" Width="330" Height="40" NoPrefix="yes" Text="Klicke auf Installieren. Nach erfolgreichem Abschluss kannst du Outlook starten und Meetling einrichten.">
+          <Condition Action="hide">Installed</Condition>
+        </Control>
+        <Control Id="RepairInfo" Type="Text" X="20" Y="108" Width="330" Height="40" Hidden="yes" NoPrefix="yes" Text="Meetling ist bereits installiert. Du kannst die Installation reparieren oder das Add-in entfernen.">
+          <Condition Action="show">Installed</Condition>
+        </Control>
+        <Control Id="Install" Type="PushButton" X="120" Y="194" Width="110" Height="23" Default="yes" Text="Installieren">
+          <Condition Action="hide">Installed</Condition>
+          <Publish Event="EndDialog" Value="Return">1</Publish>
+        </Control>
+        <Control Id="Repair" Type="PushButton" X="20" Y="194" Width="100" Height="23" Hidden="yes" Text="Reparieren">
+          <Condition Action="show">Installed</Condition>
+          <Publish Property="REINSTALL" Value="ALL" Order="1">1</Publish>
+          <Publish Property="REINSTALLMODE" Value="amus" Order="2">1</Publish>
+          <Publish Property="WixUI_InstallMode" Value="Repair" Order="3">1</Publish>
+          <Publish Event="EndDialog" Value="Return" Order="4">1</Publish>
+        </Control>
+        <Control Id="Remove" Type="PushButton" X="130" Y="194" Width="100" Height="23" Hidden="yes" Text="Entfernen">
+          <Condition Action="show">Installed</Condition>
+          <Publish Property="REMOVE" Value="ALL" Order="1">1</Publish>
+          <Publish Property="WixUI_InstallMode" Value="Remove" Order="2">1</Publish>
+          <Publish Event="EndDialog" Value="Return" Order="3">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="240" Y="194" Width="110" Height="23" Cancel="yes" Text="Abbrechen">
+          <Publish Event="EndDialog" Value="Exit">1</Publish>
+        </Control>
+      </Dialog>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
+      <InstallUISequence>
+        <Show Dialog="MeetlingSetupDlg" Before="ProgressDlg">NOT RESUME AND NOT Preselected AND NOT REMOVE AND NOT REINSTALL</Show>
+      </InstallUISequence>
+    </UI>
+    <UIRef Id="WixUI_Common" />
+  </Fragment>
+</Wix>

@@ -33,6 +33,7 @@ try {
     Copy-Item "$HarnessDirectory\*" "$root\harness" -Recurse -Force
     Copy-Item -LiteralPath $MsiPath -Destination "$root\Meetling.msi"
     Copy-Item (Join-Path $PSScriptRoot 'Run-InstalledSmoke.ps1') "$root\Run.ps1"
+    Copy-Item (Join-Path $PSScriptRoot 'Test-MsiUserInterface.ps1') $root
     # Grant access only to this disposable test directory and this test account.
     & icacls.exe $root /grant ("${userName}:(OI)(CI)M") /T /Q | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Test directory ACL setup failed.' }

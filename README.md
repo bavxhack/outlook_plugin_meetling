@@ -41,7 +41,9 @@ API-Verbindung und Anmeldung verlangen weiterhin HTTPS.
    `Meetling-OutlookAddIn-x64.msi` für 64-Bit-Outlook herunterladen.
 3. Outlook vollständig schließen und die MSI per Doppelklick öffnen.
    Die Installation erfolgt für den aktuellen Benutzer ohne Administratorrechte
-   und ohne PowerShell-Befehle. Danach Outlook starten.
+   und ohne PowerShell-Befehle. Im sichtbaren Setup **Installieren** wählen und
+   auf die Abschlussmeldung warten. Danach Outlook starten. Bei einer bereits
+   vorhandenen Installation bietet das Setup **Reparieren** und **Entfernen** an.
 
 Die MSI-Pakete werden nach erfolgreicher Windows-CI als Actions-Artefakte und
 über den bestehenden Release-Schritt veröffentlicht. Im Actions-Lauf stehen unter
@@ -71,6 +73,25 @@ und stellt die vorherige Richtlinie im `finally`-Block wieder her. Der Testbenut
 bleibt ohne Administratorrechte; Unternehmensrichtlinien auf Zielgeräten gelten
 weiterhin. Die tatsächliche Outlook-Oberfläche bleibt Teil der
 [manuellen Abnahme](docs/smoke-test.md).
+
+### Beim Doppelklick passiert scheinbar nichts
+
+Das Actions-Artefakt zuerst über **Alle extrahieren** entpacken. Anschließend die
+Datei mit der Endung `.msi` im entpackten Ordner öffnen. Der aktuelle Installer
+zeigt einen Meetling-Setupdialog, Fortschritt und eine Abschluss- oder Fehlermeldung.
+Es wird keine eigenständige Meetling-App gestartet; Meetling erscheint in Outlook
+Classic. Unter **Windows-Einstellungen → Apps → Installierte Apps** prüfen, ob
+**Meetling Outlook Add-in** vorhanden ist.
+
+Falls schon beim Öffnen kein Dialog erscheint, die genaue MSI-Datei und eine
+eventuelle Windows-Meldung nennen. Für einen Start mit festem Diagnoseprotokoll:
+
+```powershell
+msiexec.exe /i "C:\Pfad\Meetling-OutlookAddIn-x64.msi" /L*V "$env:TEMP\Meetling-Installation.log"
+```
+
+Für 32-Bit-Outlook die x86-Datei verwenden. Der Installer erzeugt zusätzlich
+standardmäßig ein Windows-Installer-Protokoll unter `%TEMP%\MSI*.log`.
 
 ## Alternativ: ZIP und Windows PowerShell 5.1
 

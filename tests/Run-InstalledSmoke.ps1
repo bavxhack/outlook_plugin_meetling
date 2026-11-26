@@ -80,7 +80,7 @@ $log = "`"$PSScriptRoot\msi.log`""
 $installedDll = Join-Path $env:LOCALAPPDATA "Meetling\OutlookAddIn\$Architecture\Meetling.OutlookAddIn.dll"
 $msiInstalled = $false
 try {
-    Invoke-Msi @('/i', $msi, '/qn', '/norestart', '/l*v', $log)
+    & "$PSScriptRoot\Test-MsiUserInterface.ps1" -MsiPath "$PSScriptRoot\Meetling.msi"
     $msiInstalled = $true
     if (-not (Test-Path $installedDll)) { throw 'MSI payload missing.' }
     # Repair must restore a deleted file and preserve user data.

@@ -35,6 +35,10 @@
       <RegistrySearch Id="FrameworkRelease" Root="HKLM" Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" Name="Release" Type="raw" Win64="no"/>
     </Property>
     <Condition Message="Bitte zuerst .NET Framework 4.8 installieren.">Installed OR NETFRAMEWORK48 &gt;= "#528040"</Condition>
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="MsiLogging" Value="voicewarmupx" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Meetling wurde für dein Windows-Benutzerkonto installiert. Starte Outlook Classic und öffne die Meetling-Einstellungen." />
+    <UIRef Id="MeetlingInstallerUI" />
     <Feature Id="Complete" Title="Meetling Outlook Add-in" Level="1"><ComponentRef Id="AddInFiles"/></Feature>
   </Product>
 </Wix>
