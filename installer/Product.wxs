@@ -2,14 +2,17 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <?if $(var.Platform) = x64 ?>
     <?define Win64 = yes ?>
+    <?define AddInComponentGuid = "E046B403-46D1-4FD2-ACBC-7100F6D6A5F0" ?>
   <?else?>
     <?define Win64 = no ?>
+    <?define AddInComponentGuid = "61D6571F-9099-43D2-A7DB-B4C7DC6088E1" ?>
   <?endif?>
   <Product Id="*" Name="Meetling Outlook Add-in" Language="1031" Version="$(var.ProductVersion)" Manufacturer="Meetling" UpgradeCode="9B30E685-B217-4B68-A511-53304A097FD7">
     <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser" Platform="$(var.Platform)" />
     <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="Eine neuere Version ist bereits installiert."/><MediaTemplate EmbedCab="yes"/>
     <Directory Id="TARGETDIR" Name="SourceDir"><Directory Id="LocalAppDataFolder"><Directory Id="CompanyDir" Name="Meetling"><Directory Id="AddInRoot" Name="OutlookAddIn"><Directory Id="INSTALLFOLDER" Name="$(var.Platform)">
-      <Component Id="AddInFiles" Guid="*" Win64="$(var.Win64)">
+      <!-- Files with an HKCU registry keypath require an explicit, stable component GUID. -->
+      <Component Id="AddInFiles" Guid="$(var.AddInComponentGuid)" Win64="$(var.Win64)">
         <File Id="AddInDll" Source="$(var.SourceDir)\Meetling.OutlookAddIn.dll"/>
         <File Id="CoreDll" Source="$(var.SourceDir)\Meetling.Core.dll"/>
         <File Id="MicrosoftOfficeInteropOutlookdll" Source="$(var.SourceDir)\Microsoft.Office.Interop.Outlook.dll"/>
