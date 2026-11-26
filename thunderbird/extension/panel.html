@@ -1,0 +1,17 @@
+<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meetling</title><link rel="stylesheet" href="panel.css">
+<header><img src="icon.svg" alt="" width="36" height="36"><div><h1>Meetling</h1><p>Konferenzen in Thunderbird</p></div></header>
+<main>
+<p id="status" role="status" aria-live="polite"></p>
+<details id="settings"><summary>Einstellungen</summary><form id="config-form">
+<label>Meetling-Adresse<input id="base-url" type="url" required placeholder="https://meetling.example.org/"></label>
+<details><summary>Erweiterte API-Konfiguration</summary><label>JSON-Konfiguration<textarea id="config-json" rows="12" spellcheck="false"></textarea></label>
+<label class="file">JSON-Datei importieren<input id="import" type="file" accept="application/json,.json"></label></details>
+<button type="submit" id="save">Speichern</button><p id="managed"></p>
+</form></details>
+<section id="account"><p id="name"></p><div class="actions"><button id="login" class="primary">Anmelden</button><button id="cancel-login" hidden>Anmeldung abbrechen</button><button id="logout" hidden>Abmelden</button></div></section>
+<section id="selection" hidden><div class="section-heading"><h2>Server auswählen</h2><button id="refresh">Aktualisieren</button></div>
+<p id="hint">Ein Klick erstellt die Konferenz und fügt sie in den Termin ein. Speichern und Einladen übernimmst du wie gewohnt in Thunderbird.</p>
+<div id="servers" aria-label="Konferenzserver"></div></section>
+<section id="result" hidden><h2>Deine Konferenz</h2><p id="insert-status"></p><div id="links"></div><label>Zum manuellen Übernehmen<textarea id="result-text" rows="9" readonly></textarea></label></section>
+</main><script src="core.js"></script><script src="panel.js"></script></html>
